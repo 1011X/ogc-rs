@@ -3,7 +3,6 @@
 //! This module implements a safe wrapper around the graphics functions found in ``gx.h``.
 
 use core::ffi::c_void;
-use core::marker::PhantomData;
 
 use alloc::vec::Vec;
 use bit_field::BitField;
@@ -14,7 +13,7 @@ use voladdress::{Safe, VolAddress};
 use crate::ffi::{self, Mtx as Mtx34, Mtx44};
 use crate::gx::regs::BPReg;
 use crate::lwp;
-use crate::utils::mem;
+use crate::utils::{Buf32, mem};
 
 use self::regs::XFReg;
 use self::types::{Gamma, PixelEngineControl, PixelFormat, VtxDest, ZFormat};
@@ -71,9 +70,9 @@ pub enum CmpFn {
     Always = ffi::GX_ALWAYS as _,
 }
 
+/// Alpha combining operations.
 #[derive(Copy, Clone, Debug)]
 #[repr(u8)]
-/// Alpha combining operations.
 pub enum AlphaOp {
     And = ffi::GX_AOP_AND as _,
     Or = ffi::GX_AOP_OR as _,
@@ -405,7 +404,7 @@ impl Fifo {
             size = Fifo::MIN_SIZE;
         }
 
-        let mut buf = crate::utils::Buf32::new(size);
+        let mut buf = Buf32::new(size);
 
         // SAFETY:
         // + original libogc source suggests that available init functions don't
@@ -860,36 +859,115 @@ pub enum WrapMode {
     Mirror = ffi::GX_MIRROR as _,
 }
 
-#[repr(transparent)]
-pub struct Texture<'img>(ffi::GXTexObj, PhantomData<&'img [u8]>);
+impl From<u8> for WrapMode {
+    fn from(x: u8) -> Self {
+        match x as u32 {
+            ffi::GX_CLAMP => WrapMode::Clamp,
+            ffi::GX_REPEAT => WrapMode::Repeat,
+            ffi::GX_MIRROR => WrapMode::Mirror,
+            _ => panic!("invalid wrap mode")
+        }
+    }
+}
 
-impl Texture<'_> {
+/// Texture formats that are supported.
+///
+/// For more information, see [https://wiki.tockdom.com/wiki/Image_Formats](https://wiki.tockdom.com/wiki/Image_Formats)
+#[derive(Copy, Clone, Debug)]
+#[repr(u8)]
+pub enum TextureFormat {
+    /// 4 bpp: 4-bit intensity; 8x8 block
+    I4 = ffi::GX_TF_I4 as _,
+    /// 8 bpp: 8-bit intensity; 8x4 block
+    I8 = ffi::GX_TF_I8 as _,
+    /// 8 bpp: 4-bit alpha, 4-bit intensity; 8x4 block
+    /// `AAAAIIII`
+    IA4 = ffi::GX_TF_IA4 as _,
+    /// 16 bpp: 8-bit alpha, 8-bit intensity; 4x4 block
+    /// `AAAAAAAA IIIIIIII`
+    IA8 = ffi::GX_TF_IA8 as _,
+    /// 16 bpp: 5-bit red, 6-bit green, 5-bit blue; 4x4 block
+    /// `RRRRRGGG GGGBBBBB`
+    RGB565 = ffi::GX_TF_RGB565 as _,
+    /// 16 bpp, 4x4 block
+    /// * `1RRRRRGG GGGBBBBB`: 5-bit red, 5-bit green, 5-bit blue
+    /// * `0AAARRRR GGGGBBBB`: 3-bit alpha, 4-bit red, 4-bit green, 4-bit blue
+    RGB5A3 = ffi::GX_TF_RGB5A3 as _,
+    /// 32 bpp, 4x4 block
+    /// ```
+    /// AAAAAAAA RRRRRRRR, AAAAAAAA RRRRRRRR, ...
+    /// AAAAAAAA RRRRRRRR, AAAAAAAA RRRRRRRR, ...
+    /// GGGGGGGG BBBBBBBB, GGGGGGGG BBBBBBBB, ...
+    /// GGGGGGGG BBBBBBBB, GGGGGGGG BBBBBBBB, ...
+    /// ```
+    RGBA8 = ffi::GX_TF_RGBA8 as _,
+    /// 4 bpp: 4-bit color index; 8x8 block, indices only; palletes: IA8, RGB565, RGB5A3
+    CI4 = ffi::GX_TF_CI4 as _,
+    /// 8 bpp: 8-bit color index; 8x4 block, indices only; palletes: IA8, RGB565, RGB5A3
+    CI8 = ffi::GX_TF_CI8 as _,
+    /// 16 bpp, 8x4 block, indices only; palletes: IA8, RGB565, RGB5A3
+    /// `XXCCCCCC CCCCCCCC`: 2-bit unused, 14-bit color index
+    CI14 = ffi::GX_TF_CI14 as _,
+    /// Compressed form
+    CMPR = ffi::GX_TF_CMPR as _,
+}
+
+/// Object containing information about a texture.
+#[derive(Debug)]
+pub struct Texture {
+    inner: ffi::GXTexObj,
+    img: Buf32,
+}
+
+impl Texture {
+    /// Returns the amount of memory in bytes needed to store a texture of the given size and fmt.
+    pub fn get_buffer_size(wd: u16, ht: u16, fmt: u32, mipmap: bool, maxlod: u8) -> usize {
+        unsafe { ffi::GX_GetTexBufferSize(wd, ht, fmt, mipmap as u8, maxlod) as usize }
+    }
+    
     /// Used to initialize or change a texture object for non-color index textures.
     pub fn new(
         img: &[u8],
         width: u16,
         height: u16,
         format: u8,
-        wrap_s: WrapMode,
-        wrap_t: WrapMode,
+        wrap: (WrapMode, WrapMode),
         mipmap: bool,
     ) -> Texture {
-        let texture = core::mem::MaybeUninit::zeroed();
-        assert_eq!(0, img.as_ptr().align_offset(32));
-        assert!(width <= 1024, "max width for texture is 1024");
-        assert!(height <= 1024, "max height for texture is 1024");
+        let mut img_data = Buf32::new(img.len());
+        let mut texture = core::mem::MaybeUninit::zeroed();
+        
+        // populate image data
+        for (src, dest) in img.iter().zip(img_data.as_mut_slice().iter_mut()) {
+            *dest = *src;
+        }
+        
+        // error in debug mode when dimensions are too big.
+        // in release it doesn't matter; libogc bit-masks the upper bits out.
+        debug_assert!(width <= 1024, "max width for texture is 1024");
+        debug_assert!(height <= 1024, "max height for texture is 1024");
+        
+        // SAFETY:
+        // * ffi::GX_InitTexObj():
+        //   * img_data is aligned to 32B boundary by design.
+        // * texture.assume_init():
+        //   * texture is initialized to zero above.
         unsafe {
             ffi::GX_InitTexObj(
-                texture.as_ptr() as *mut _,
-                img.as_ptr() as *mut _,
+                texture.as_mut_ptr() as *mut _,
+                img_data.as_mut_ptr() as *mut _,
                 width,
                 height,
                 format,
-                wrap_s as u8,
-                wrap_t as u8,
+                wrap.0 as u8,
+                wrap.1 as u8,
                 mipmap as u8,
             );
-            Texture(texture.assume_init(), PhantomData)
+            
+            Texture {
+                inner: texture.assume_init(),
+                img: img_data,
+            }
         }
     }
 
@@ -903,14 +981,35 @@ impl Texture<'_> {
         mipmap: bool,
         tlut_name: u32,
     ) -> Texture {
-        let texture = core::mem::MaybeUninit::zeroed();
-        assert_eq!(0, img.as_ptr().align_offset(32));
-        assert!(width <= 1024, "max width for texture is 1024");
-        assert!(height <= 1024, "max height for texture is 1024");
+        let mut img_data = Buf32::new(img.len());
+        let mut texture = core::mem::MaybeUninit::zeroed();
+        
+        // populate image data
+        for (src, dest) in img.iter().zip(img_data.as_mut_slice().iter_mut()) {
+            *dest = *src;
+        }
+        
+        // error in debug mode when dimensions are too big.
+        // in release it doesn't matter; libogc bit-masks the upper bits out.
+        debug_assert!(width <= 1024, "max texture width is 1024, got {}", width);
+        debug_assert!(height <= 1024, "max texture height is 1024, got {}", height);
+        
+        // error in debug mode when mipmaps sizes aren't a power of 2.
+        // not sure what this does in release mode
+        if mipmap {
+            debug_assert!(width.is_power_of_two(), "mipmap texture width must be power of 2");
+            debug_assert!(height.is_power_of_two(), "mipmap texture height must be power of 2");
+        }
+        
+        // SAFETY:
+        // * ffi::GX_InitTexObj():
+        //   * img_data is aligned to 32B boundary by design.
+        // * texture.assume_init():
+        //   * texture is initialized to zero above.
         unsafe {
             ffi::GX_InitTexObjCI(
-                texture.as_ptr() as *mut _,
-                img.as_ptr() as *mut _,
+                texture.as_mut_ptr() as *mut _,
+                img_data.as_mut_ptr() as *mut _,
                 width,
                 height,
                 format,
@@ -919,26 +1018,42 @@ impl Texture<'_> {
                 mipmap as u8,
                 tlut_name,
             );
-            Texture(texture.assume_init(), PhantomData)
+            
+            Texture {
+                inner: texture.assume_init(),
+                img: img_data,
+            }
         }
     }
 
     /// Returns the texture height.
     pub fn height(&self) -> u16 {
-        // TODO: remove conversions when upstream changes pass.
-        unsafe { ffi::GX_GetTexObjHeight(self as *const _ as *mut _) }
+        unsafe { ffi::GX_GetTexObjHeight(&self.inner as *const _) }
     }
 
     /// Returns the texture width.
     pub fn width(&self) -> u16 {
-        // TODO: remove conversions when upstream changes pass.
-        unsafe { ffi::GX_GetTexObjWidth(self as *const _ as *mut _) }
+        unsafe { ffi::GX_GetTexObjWidth(&self.inner as *const _) }
     }
 
     /// Returns `true` if the texture's mipmap flag is enabled.
     pub fn is_mipmapped(&self) -> bool {
-        // TODO: remove conversions when upstream changes pass.
-        unsafe { ffi::GX_GetTexObjMipMap(self as *const _ as *mut _) != 0 }
+        unsafe { ffi::GX_GetTexObjMipMap(&self.inner as *const _) != 0 }
+    }
+    
+    /// Returns the texture wrap S mode described by the texture object.
+    pub fn get_wrap_s(&self) -> WrapMode {
+        unsafe { ffi::GX_GetTexObjWrapS(&self.inner as *const _).into() }
+    }
+    
+    /// Returns the texture wrap T mode described by the texture object.
+    pub fn get_wrap_t(&self) -> WrapMode {
+        unsafe { ffi::GX_GetTexObjWrapT(&self.inner as *const _).into() }
+    }
+    
+    /// Returns the texture wrap mode for both S and T described by the texture object.
+    pub fn get_wrap(&self) -> (WrapMode, WrapMode) {
+        (self.get_wrap_s(), self.get_wrap_t())
     }
 
     /// Enables bias clamping for texture LOD.
@@ -948,7 +1063,7 @@ impl Texture<'_> {
     /// texture space. This prevents over-biasing the LOD when the polygon is perpendicular to the
     /// view direction.
     pub fn set_bias_clamp(&mut self, enable: bool) {
-        unsafe { ffi::GX_InitTexObjBiasClamp(&mut self.0, enable as u8) }
+        unsafe { ffi::GX_InitTexObjBiasClamp(&mut self.inner, enable as u8) }
     }
 
     /// Changes LOD computing mode.
@@ -958,7 +1073,7 @@ impl Texture<'_> {
     /// [`Texture::set_bias_clamp()`]) or anisotropic filtering (`GX_ANISO_2` or `GX_ANISO_4` for
     /// [`Texture::set_max_aniso()`] argument).
     pub fn set_edge_lod(&mut self, enable: bool) {
-        unsafe { ffi::GX_InitTexObjEdgeLOD(&mut self.0, enable as u8) }
+        unsafe { ffi::GX_InitTexObjEdgeLOD(&mut self.inner, enable as u8) }
     }
 
     /// Sets the filter mode for a texture.
@@ -971,7 +1086,7 @@ impl Texture<'_> {
             matches!(magfilt, TexFilter::Near | TexFilter::Linear),
             "magfilt can only be `TexFilter::Near` or `TexFilter::Linear`"
         );
-        unsafe { ffi::GX_InitTexObjFilterMode(&mut self.0, minfilt as u8, magfilt as u8) }
+        unsafe { ffi::GX_InitTexObjFilterMode(&mut self.inner, minfilt as u8, magfilt as u8) }
     }
 
     /// Sets texture Level Of Detail (LOD) controls explicitly for a texture object.
@@ -1025,7 +1140,7 @@ impl Texture<'_> {
         );
         unsafe {
             ffi::GX_InitTexObjLOD(
-                &mut self.0,
+                &mut self.inner,
                 filters.0 as u8,
                 filters.1 as u8,
                 lod_range.0,
@@ -1040,12 +1155,12 @@ impl Texture<'_> {
 
     /// Sets the LOD bias for a given texture.
     pub fn set_lod_bias(&mut self, lodbias: f32) {
-        unsafe { ffi::GX_InitTexObjLODBias(&mut self.0, lodbias) }
+        unsafe { ffi::GX_InitTexObjLODBias(&mut self.inner, lodbias) }
     }
 
     /// Sets the maximum anisotropic filter to use for a texture.
     pub fn set_max_aniso(&mut self, maxaniso: u8) {
-        unsafe { ffi::GX_InitTexObjMaxAniso(&mut self.0, maxaniso) }
+        unsafe { ffi::GX_InitTexObjMaxAniso(&mut self.inner, maxaniso) }
     }
 
     /// Sets the maximum LOD for a given texture.
@@ -1054,7 +1169,7 @@ impl Texture<'_> {
             (0.0..=10.0).contains(&maxlod),
             "valid range for max LOD is 0.0 to 10.0"
         );
-        unsafe { ffi::GX_InitTexObjMaxLOD(&mut self.0, maxlod) }
+        unsafe { ffi::GX_InitTexObjMaxLOD(&mut self.inner, maxlod) }
     }
 
     /// Sets the minimum LOD for a given texture.
@@ -1063,29 +1178,31 @@ impl Texture<'_> {
             (0.0..=10.0).contains(&minlod),
             "valid range for min LOD is 0.0 to 10.0"
         );
-        unsafe { ffi::GX_InitTexObjMinLOD(&mut self.0, minlod) }
+        unsafe { ffi::GX_InitTexObjMinLOD(&mut self.inner, minlod) }
     }
 
     /// Allows one to modify the TLUT that is associated with an existing texture object.
     pub fn set_tlut(&mut self, tlut_name: u32) {
-        unsafe { ffi::GX_InitTexObjTlut(&mut self.0, tlut_name) }
+        unsafe { ffi::GX_InitTexObjTlut(&mut self.inner, tlut_name) }
     }
 
     /// Allows one to modify the texture coordinate wrap modes for an existing texture object.
     pub fn set_wrap_mode(&mut self, wrap_s: WrapMode, wrap_t: WrapMode) {
-        unsafe { ffi::GX_InitTexObjWrapMode(&mut self.0, wrap_s as u8, wrap_t as u8) }
+        unsafe { ffi::GX_InitTexObjWrapMode(&mut self.inner, wrap_s as u8, wrap_t as u8) }
     }
 
     pub fn gxtexobj(&mut self) -> &mut GXTexObj {
-        &mut self.0
+        &mut self.inner
     }
 }
 
-impl<'a> From<GXTexObj> for Texture<'a> {
+/*
+impl From<GXTexObj> for Texture {
     fn from(obj: GXTexObj) -> Self {
         Self(obj, PhantomData)
     }
 }
+*/
 
 /// Vertex attribute array type
 #[derive(Copy, Clone, Debug)]
@@ -1182,7 +1299,7 @@ impl Gx {
             size = Fifo::MIN_SIZE;
         }
 
-        let mut buf = crate::utils::Buf32::new(size);
+        let mut buf = Buf32::new(size);
 
         // SAFETY: all safety is ensured by Buf32.
         unsafe {
@@ -1786,7 +1903,7 @@ impl Gx {
     /// If the texture is a color-index texture, you **must** load the associated TLUT (using
     /// [`Gx::load_tlut()`]) before calling this function.
     pub fn load_texture(obj: &Texture, mapid: u8) {
-        unsafe { ffi::GX_LoadTexObj((&obj.0) as *const _ as *mut _, mapid) }
+        unsafe { ffi::GX_LoadTexObj((&obj.inner) as *const _ as *mut _, mapid) }
     }
 
     /// Sets the projection matrix.

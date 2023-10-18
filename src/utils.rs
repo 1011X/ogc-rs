@@ -128,7 +128,7 @@ impl Buf32 {
 
 		Buf32(block)
 	}
-
+	
 	/// Extracts a slice of the entire buffer.
 	pub fn as_slice(&self) -> &[u8] {
 		// SAFETY: `self.0` is aligned, dereferenceable, initialized, and
@@ -143,6 +143,11 @@ impl Buf32 {
 		//         enforces aliasing rules by binding the reference's lifetime
 		//         to that of `&mut self`.
 		unsafe { self.0.as_mut() }
+	}
+	
+	/// Returns a raw pointer to the slice’s buffer.
+	pub fn as_mut_ptr(&mut self) -> *mut u8 {
+		self.0.as_mut_ptr()
 	}
 }
 
