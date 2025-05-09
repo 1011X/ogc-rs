@@ -1,6 +1,7 @@
-//! The ``gx`` module of ``ogc-rs``.
+//! Provides an OpenGL-like interface for rendering on the Wii.
 //!
-//! This module implements a safe wrapper around the graphics functions found in ``gx.h``.
+//! This module implements a safe wrapper around the graphics functions found
+//! in `gx.h`.
 
 use core::ffi::c_void;
 use core::mem::ManuallyDrop;
@@ -41,45 +42,46 @@ impl Color {
 
 /// Backface culling mode.
 ///
-/// Primitives in which the vertex order is clockwise to the viewer are considered front-facing.
+/// Primitives in which the vertex order is clockwise to the viewer are
+/// considered front-facing.
 #[derive(Copy, Clone, Debug)]
-#[repr(u8)]
+#[repr(u32)]
 pub enum CullMode {
     /// Do not cull any primitives.
-    None = ffi::GX_CULL_NONE as _,
+    None = ffi::GX_CULL_NONE,
 
     /// Cull front-facing primitives.
-    Front = ffi::GX_CULL_FRONT as _,
+    Front = ffi::GX_CULL_FRONT,
 
     /// Cull back-facing primitives.
-    Back = ffi::GX_CULL_BACK as _,
+    Back = ffi::GX_CULL_BACK,
 
     /// Cull all primitives.
-    All = ffi::GX_CULL_ALL as _,
+    All = ffi::GX_CULL_ALL,
 }
 
 /// Comparison functions.
 #[derive(Copy, Clone, Debug)]
-#[repr(u8)]
+#[repr(u32)]
 pub enum CmpFn {
-    Never = ffi::GX_NEVER as _,
-    Less = ffi::GX_LESS as _,
-    Equal = ffi::GX_EQUAL as _,
-    LessEq = ffi::GX_LEQUAL as _,
-    Greater = ffi::GX_GREATER as _,
-    NotEq = ffi::GX_NEQUAL as _,
-    GreaterEq = ffi::GX_GEQUAL as _,
-    Always = ffi::GX_ALWAYS as _,
+    Never = ffi::GX_NEVER,
+    Less = ffi::GX_LESS,
+    Equal = ffi::GX_EQUAL,
+    LessEq = ffi::GX_LEQUAL,
+    Greater = ffi::GX_GREATER,
+    NotEq = ffi::GX_NEQUAL,
+    GreaterEq = ffi::GX_GEQUAL,
+    Always = ffi::GX_ALWAYS,
 }
 
 /// Alpha combining operations.
 #[derive(Copy, Clone, Debug)]
-#[repr(u8)]
+#[repr(u32)]
 pub enum AlphaOp {
-    And = ffi::GX_AOP_AND as _,
-    Or = ffi::GX_AOP_OR as _,
-    Xnor = ffi::GX_AOP_XNOR as _,
-    Xor = ffi::GX_AOP_XOR as _,
+    And = ffi::GX_AOP_AND,
+    Or = ffi::GX_AOP_OR,
+    Xnor = ffi::GX_AOP_XNOR,
+    Xor = ffi::GX_AOP_XOR,
 }
 
 /// Collection of primitive types that can be drawn by the GP.
@@ -87,89 +89,89 @@ pub enum AlphaOp {
 /// Which type you use depends on your needs; however, performance can increase by using triangle
 /// strips or fans instead of discrete triangles.
 #[derive(Copy, Clone, Debug)]
-#[repr(u8)]
+#[repr(u32)]
 pub enum Primitive {
     /// Draws a series of unconnected quads. Every four vertices completes a quad. Internally, each
     /// quad is translated into a pair of triangles.
-    Quads = ffi::GX_QUADS as _,
+    Quads = ffi::GX_QUADS,
 
     /// Draws a series of unconnected triangles. Three vertices make a single triangle.
-    Triangles = ffi::GX_TRIANGLES as _,
+    Triangles = ffi::GX_TRIANGLES,
 
     /// Draws a series of triangles. Each triangle (besides the first) shares a side with the
     /// previous triangle. Each vertex (besides the first two) completes a triangle.
-    TriangleStrip = ffi::GX_TRIANGLESTRIP as _,
+    TriangleStrip = ffi::GX_TRIANGLESTRIP,
 
     /// Draws a single triangle fan. The first vertex is the "centerpoint". The second and third
     /// vertex complete the first triangle. Each subsequent vertex completes another triangle which
     /// shares a side with the previous triangle (except the first triangle) and has the
     // centerpoint vertex as one of the vertices.
-    TriangleFan = ffi::GX_TRIANGLEFAN as _,
+    TriangleFan = ffi::GX_TRIANGLEFAN,
 
     /// Draws a series of unconnected line segments. Each pair of vertices makes a line.
-    Lines = ffi::GX_LINES as _,
+    Lines = ffi::GX_LINES,
 
     /// Draws a series of lines. Each vertex (besides the first) makes a line between it and the
     /// previous.
-    LineStrip = ffi::GX_LINESTRIP as _,
+    LineStrip = ffi::GX_LINESTRIP,
 
     /// Draws a series of points. Each vertex is a single point.
-    Points = ffi::GX_POINTS as _,
+    Points = ffi::GX_POINTS,
 }
 
 /// Specifies which blending operation to use.
 #[derive(Copy, Clone, Debug)]
-#[repr(u8)]
+#[repr(u32)]
 pub enum BlendMode {
     /// Write input directly to EFB
-    None = ffi::GX_BM_NONE as _,
+    None = ffi::GX_BM_NONE,
 
     /// Blend using blending equation
-    Blend = ffi::GX_BM_BLEND as _,
+    Blend = ffi::GX_BM_BLEND,
 
     /// Blend using bitwise operation
-    Logic = ffi::GX_BM_LOGIC as _,
+    Logic = ffi::GX_BM_LOGIC,
 
     /// Input subtracts from existing pixel
-    Subtract = ffi::GX_BM_SUBTRACT as _,
+    Subtract = ffi::GX_BM_SUBTRACT,
 }
 
 /// Destination (`dst`) acquires the value of one of these operations, given in Rust syntax.
 #[derive(Copy, Clone, Debug)]
-#[repr(u8)]
+#[repr(u32)]
 pub enum LogicOp {
     /// `src & dst`
-    And = ffi::GX_LO_AND as _,
+    And = ffi::GX_LO_AND,
     /// `0`
-    Clear = ffi::GX_LO_CLEAR as _,
+    Clear = ffi::GX_LO_CLEAR,
     /// `src`
-    Copy = ffi::GX_LO_COPY as _,
+    Copy = ffi::GX_LO_COPY,
     /// `!(src ^ dst)`
-    Equiv = ffi::GX_LO_EQUIV as _,
+    Equiv = ffi::GX_LO_EQUIV,
     /// `!dst`
-    Inv = ffi::GX_LO_INV as _,
+    Inv = ffi::GX_LO_INV,
     /// `!src & dst`
-    InvAnd = ffi::GX_LO_INVAND as _,
+    InvAnd = ffi::GX_LO_INVAND,
     /// `!src`
-    InvCopy = ffi::GX_LO_INVCOPY as _,
+    InvCopy = ffi::GX_LO_INVCOPY,
     /// `!src | dst`
-    InvOr = ffi::GX_LO_INVOR as _,
+    InvOr = ffi::GX_LO_INVOR,
     /// `!(src & dst)`
-    Nand = ffi::GX_LO_NAND as _,
+    Nand = ffi::GX_LO_NAND,
     /// `dst`
-    Nop = ffi::GX_LO_NOOP as _,
+    Nop = ffi::GX_LO_NOOP,
     /// `!(src | dst)`
-    Nor = ffi::GX_LO_NOR as _,
+    Nor = ffi::GX_LO_NOR,
     /// `src | dst`
-    Or = ffi::GX_LO_OR as _,
+    Or = ffi::GX_LO_OR,
     /// `src & !dst`
-    RevAnd = ffi::GX_LO_REVAND as _,
+    RevAnd = ffi::GX_LO_REVAND,
     /// `src | !dst`
-    RevOr = ffi::GX_LO_REVOR as _,
+    RevOr = ffi::GX_LO_REVOR,
     /// `1`
-    Set = ffi::GX_LO_SET as _,
+    Set = ffi::GX_LO_SET,
     /// `src ^ dst`
-    Xor = ffi::GX_LO_XOR as _,
+    Xor = ffi::GX_LO_XOR,
 }
 
 /// Performance counter 0 is used to measure attributes dealing with geometry and primitives, such
@@ -307,63 +309,63 @@ pub enum Perf1 {
 
 /// Each pixel (source or destination) is multiplied by any of these controls.
 #[derive(Copy, Clone, Debug)]
-#[repr(u8)]
+#[repr(u32)]
 pub enum BlendCtrl {
     /// framebuffer alpha
-    DstAlpha = ffi::GX_BL_DSTALPHA as _,
+    DstAlpha = ffi::GX_BL_DSTALPHA,
     /// 1.0 - (framebuffer alpha)
-    InvDstAlpha = ffi::GX_BL_INVDSTALPHA as _,
+    InvDstAlpha = ffi::GX_BL_INVDSTALPHA,
     /// 1.0 - (source alpha)
-    InvSrcAlpha = ffi::GX_BL_INVSRCALPHA as _,
+    InvSrcAlpha = ffi::GX_BL_INVSRCALPHA,
     /// 1.0 - (source color)
-    InvSrcColor = ffi::GX_BL_INVSRCCLR as _,
+    InvSrcColor = ffi::GX_BL_INVSRCCLR,
     /// 1.0
-    One = ffi::GX_BL_ONE as _,
+    One = ffi::GX_BL_ONE,
     /// source alpha
-    SrcAlpha = ffi::GX_BL_SRCALPHA as _,
+    SrcAlpha = ffi::GX_BL_SRCALPHA,
     /// source color
-    SrcColor = ffi::GX_BL_SRCCLR as _,
+    SrcColor = ffi::GX_BL_SRCCLR,
     /// 0.0
-    Zero = ffi::GX_BL_ZERO as _,
+    Zero = ffi::GX_BL_ZERO,
 }
 
 /// Compressed Z format.
 ///
 /// See [`Gx::set_pixel_fmt()`] for details.
 #[derive(Copy, Clone, Debug)]
-#[repr(u8)]
+#[repr(u32)]
 pub enum ZCompress {
-    Linear = ffi::GX_ZC_LINEAR as _,
-    Near = ffi::GX_ZC_NEAR as _,
-    Mid = ffi::GX_ZC_MID as _,
-    Far = ffi::GX_ZC_FAR as _,
+    Linear = ffi::GX_ZC_LINEAR,
+    Near = ffi::GX_ZC_NEAR,
+    Mid = ffi::GX_ZC_MID,
+    Far = ffi::GX_ZC_FAR,
 }
 
 /// Specifies whether the input source color for a color channel comes from a register or a vertex.
 #[derive(Copy, Clone, Debug)]
-#[repr(u8)]
+#[repr(u32)]
 pub enum Source {
-    Register = ffi::GX_SRC_REG as _,
-    Vertex = ffi::GX_SRC_VTX as _,
+    Register = ffi::GX_SRC_REG,
+    Vertex = ffi::GX_SRC_VTX,
 }
 
 #[derive(Copy, Clone, Debug)]
-#[repr(u8)]
+#[repr(u32)]
 pub enum DiffFn {
-    None = ffi::GX_DF_NONE as _,
-    Signed = ffi::GX_DF_SIGNED as _,
-    Clamp = ffi::GX_DF_CLAMP as _,
+    None = ffi::GX_DF_NONE,
+    Signed = ffi::GX_DF_SIGNED,
+    Clamp = ffi::GX_DF_CLAMP,
 }
 
 #[derive(Copy, Clone, Debug)]
-#[repr(u8)]
+#[repr(u32)]
 pub enum AttnFn {
     /// No attenuation
-    None = ffi::GX_AF_NONE as _,
+    None = ffi::GX_AF_NONE,
     /// Specular computation
-    Spec = ffi::GX_AF_SPEC as _,
+    Spec = ffi::GX_AF_SPEC,
     /// Spot light attenuation
-    Spot = ffi::GX_AF_SPOT as _,
+    Spot = ffi::GX_AF_SPOT,
 }
 
 /// Object describing a graphics FIFO.
@@ -516,25 +518,25 @@ pub struct Light(ffi::GXLightObj);
 
 /// Type of the brightness decreasing function by distance.
 #[derive(Copy, Clone, Debug)]
-#[repr(u8)]
+#[repr(u32)]
 pub enum DistFn {
-    Off = ffi::GX_DA_OFF as _,
-    Gentle = ffi::GX_DA_GENTLE as _,
-    Medium = ffi::GX_DA_MEDIUM as _,
-    Steep = ffi::GX_DA_STEEP as _,
+    Off = ffi::GX_DA_OFF,
+    Gentle = ffi::GX_DA_GENTLE,
+    Medium = ffi::GX_DA_MEDIUM,
+    Steep = ffi::GX_DA_STEEP,
 }
 
 /// Spot illumination distribution function
 #[derive(Copy, Clone, Debug)]
-#[repr(u8)]
+#[repr(u32)]
 pub enum SpotFn {
-    Off = ffi::GX_SP_OFF as _,
-    Flat = ffi::GX_SP_FLAT as _,
-    Cos = ffi::GX_SP_COS as _,
-    Cos2 = ffi::GX_SP_COS2 as _,
-    Sharp = ffi::GX_SP_SHARP as _,
-    Ring1 = ffi::GX_SP_RING1 as _,
-    Ring2 = ffi::GX_SP_RING2 as _,
+    Off = ffi::GX_SP_OFF,
+    Flat = ffi::GX_SP_FLAT,
+    Cos = ffi::GX_SP_COS,
+    Cos2 = ffi::GX_SP_COS2,
+    Sharp = ffi::GX_SP_SHARP,
+    Ring1 = ffi::GX_SP_RING1,
+    Ring2 = ffi::GX_SP_RING2,
 }
 
 impl Light {
@@ -834,29 +836,29 @@ impl Light {
 
 /// Texture filter types
 #[derive(Copy, Clone, Debug)]
-#[repr(u8)]
+#[repr(u32)]
 pub enum TexFilter {
     /// Point sampling, no mipmap
-    Near = ffi::GX_NEAR as _,
+    Near = ffi::GX_NEAR,
     /// Point sampling, linear mipmap
-    NearMipLin = ffi::GX_NEAR_MIP_LIN as _,
+    NearMipLin = ffi::GX_NEAR_MIP_LIN,
     /// Point sampling, discrete mipmap
-    NearMipNear = ffi::GX_NEAR_MIP_NEAR as _,
+    NearMipNear = ffi::GX_NEAR_MIP_NEAR,
     /// Trilinear filtering
-    LinMipLin = ffi::GX_LIN_MIP_LIN as _,
+    LinMipLin = ffi::GX_LIN_MIP_LIN,
     /// Bilinear filtering, discrete mipmap
-    LinMipNear = ffi::GX_LIN_MIP_NEAR as _,
+    LinMipNear = ffi::GX_LIN_MIP_NEAR,
     /// Bilinear filtering, no mipmap
-    Linear = ffi::GX_LINEAR as _,
+    Linear = ffi::GX_LINEAR,
 }
 
 /// Texture wrap modes
 #[derive(Copy, Clone, Debug)]
-#[repr(u8)]
+#[repr(u32)]
 pub enum WrapMode {
-    Clamp = ffi::GX_CLAMP as _,
-    Repeat = ffi::GX_REPEAT as _,
-    Mirror = ffi::GX_MIRROR as _,
+    Clamp = ffi::GX_CLAMP,
+    Repeat = ffi::GX_REPEAT,
+    Mirror = ffi::GX_MIRROR,
 }
 
 impl From<u8> for WrapMode {
@@ -874,25 +876,25 @@ impl From<u8> for WrapMode {
 ///
 /// For more information, see [https://wiki.tockdom.com/wiki/Image_Formats](https://wiki.tockdom.com/wiki/Image_Formats)
 #[derive(Copy, Clone, Debug)]
-#[repr(u8)]
+#[repr(u32)]
 pub enum TextureFormat {
     /// 4 bpp: 4-bit intensity; 8x8 block
-    I4 = ffi::GX_TF_I4 as _,
+    I4 = ffi::GX_TF_I4,
     /// 8 bpp: 8-bit intensity; 8x4 block
-    I8 = ffi::GX_TF_I8 as _,
+    I8 = ffi::GX_TF_I8,
     /// 8 bpp: 4-bit alpha, 4-bit intensity; 8x4 block
     /// `AAAAIIII`
-    IA4 = ffi::GX_TF_IA4 as _,
+    IA4 = ffi::GX_TF_IA4,
     /// 16 bpp: 8-bit alpha, 8-bit intensity; 4x4 block
     /// `AAAAAAAA IIIIIIII`
-    IA8 = ffi::GX_TF_IA8 as _,
+    IA8 = ffi::GX_TF_IA8,
     /// 16 bpp: 5-bit red, 6-bit green, 5-bit blue; 4x4 block
     /// `RRRRRGGG GGGBBBBB`
-    RGB565 = ffi::GX_TF_RGB565 as _,
+    RGB565 = ffi::GX_TF_RGB565,
     /// 16 bpp, 4x4 block
     /// * `1RRRRRGG GGGBBBBB`: 5-bit red, 5-bit green, 5-bit blue
     /// * `0AAARRRR GGGGBBBB`: 3-bit alpha, 4-bit red, 4-bit green, 4-bit blue
-    RGB5A3 = ffi::GX_TF_RGB5A3 as _,
+    RGB5A3 = ffi::GX_TF_RGB5A3,
     /// 32 bpp, 4x4 block
     /// ```
     /// AAAAAAAA RRRRRRRR, AAAAAAAA RRRRRRRR, ...
@@ -900,16 +902,16 @@ pub enum TextureFormat {
     /// GGGGGGGG BBBBBBBB, GGGGGGGG BBBBBBBB, ...
     /// GGGGGGGG BBBBBBBB, GGGGGGGG BBBBBBBB, ...
     /// ```
-    RGBA8 = ffi::GX_TF_RGBA8 as _,
+    RGBA8 = ffi::GX_TF_RGBA8,
     /// 4 bpp: 4-bit color index; 8x8 block, indices only; palletes: IA8, RGB565, RGB5A3
-    CI4 = ffi::GX_TF_CI4 as _,
+    CI4 = ffi::GX_TF_CI4,
     /// 8 bpp: 8-bit color index; 8x4 block, indices only; palletes: IA8, RGB565, RGB5A3
-    CI8 = ffi::GX_TF_CI8 as _,
+    CI8 = ffi::GX_TF_CI8,
     /// 16 bpp, 8x4 block, indices only; palletes: IA8, RGB565, RGB5A3
     /// `XXCCCCCC CCCCCCCC`: 2-bit unused, 14-bit color index
-    CI14 = ffi::GX_TF_CI14 as _,
+    CI14 = ffi::GX_TF_CI14,
     /// Compressed form
-    CMPR = ffi::GX_TF_CMPR as _,
+    CMPR = ffi::GX_TF_CMPR,
 }
 
 /// Object containing information about a texture.
@@ -1206,37 +1208,37 @@ impl From<GXTexObj> for Texture {
 
 /// Vertex attribute array type
 #[derive(Copy, Clone, Debug)]
-#[repr(u8)]
+#[repr(u32)]
 pub enum VtxAttr {
-    Null = ffi::GX_VA_NULL as _,
-    LightArray = ffi::GX_LIGHTARRAY as _,
-    NrmMtxArray = ffi::GX_NRMMTXARRAY as _,
-    PosMtxArray = ffi::GX_POSMTXARRAY as _,
-    TexMtxArray = ffi::GX_TEXMTXARRAY as _,
-    Color0 = ffi::GX_VA_CLR0 as _,
-    Color1 = ffi::GX_VA_CLR1 as _,
-    MaxAttr = ffi::GX_VA_MAXATTR as _,
+    Null = ffi::GX_VA_NULL,
+    LightArray = ffi::GX_LIGHTARRAY,
+    NrmMtxArray = ffi::GX_NRMMTXARRAY,
+    PosMtxArray = ffi::GX_POSMTXARRAY,
+    TexMtxArray = ffi::GX_TEXMTXARRAY,
+    Color0 = ffi::GX_VA_CLR0,
+    Color1 = ffi::GX_VA_CLR1,
+    MaxAttr = ffi::GX_VA_MAXATTR,
     /// Normal, binormal, tangent
-    Nbt = ffi::GX_VA_NBT as _,
-    Nrm = ffi::GX_VA_NRM as _,
-    Pos = ffi::GX_VA_POS as _,
-    PtnMtxIdx = ffi::GX_VA_PTNMTXIDX as _,
-    Tex0 = ffi::GX_VA_TEX0 as _,
-    Tex0MtxIdx = ffi::GX_VA_TEX0MTXIDX as _,
-    Tex1 = ffi::GX_VA_TEX1 as _,
-    Tex1MtxIdx = ffi::GX_VA_TEX1MTXIDX as _,
-    Tex2 = ffi::GX_VA_TEX2 as _,
-    Tex2MtxIdx = ffi::GX_VA_TEX2MTXIDX as _,
-    Tex3 = ffi::GX_VA_TEX3 as _,
-    Tex3MtxIdx = ffi::GX_VA_TEX3MTXIDX as _,
-    Tex4 = ffi::GX_VA_TEX4 as _,
-    Tex4MtxIdx = ffi::GX_VA_TEX4MTXIDX as _,
-    Tex5 = ffi::GX_VA_TEX5 as _,
-    Tex5MtxIdx = ffi::GX_VA_TEX5MTXIDX as _,
-    Tex6 = ffi::GX_VA_TEX6 as _,
-    Tex6MtxIdx = ffi::GX_VA_TEX6MTXIDX as _,
-    Tex7 = ffi::GX_VA_TEX7 as _,
-    Tex7MtxIdx = ffi::GX_VA_TEX7MTXIDX as _,
+    Nbt = ffi::GX_VA_NBT,
+    Nrm = ffi::GX_VA_NRM,
+    Pos = ffi::GX_VA_POS,
+    PtnMtxIdx = ffi::GX_VA_PTNMTXIDX,
+    Tex0 = ffi::GX_VA_TEX0,
+    Tex0MtxIdx = ffi::GX_VA_TEX0MTXIDX,
+    Tex1 = ffi::GX_VA_TEX1,
+    Tex1MtxIdx = ffi::GX_VA_TEX1MTXIDX,
+    Tex2 = ffi::GX_VA_TEX2,
+    Tex2MtxIdx = ffi::GX_VA_TEX2MTXIDX,
+    Tex3 = ffi::GX_VA_TEX3,
+    Tex3MtxIdx = ffi::GX_VA_TEX3MTXIDX,
+    Tex4 = ffi::GX_VA_TEX4,
+    Tex4MtxIdx = ffi::GX_VA_TEX4MTXIDX,
+    Tex5 = ffi::GX_VA_TEX5,
+    Tex5MtxIdx = ffi::GX_VA_TEX5MTXIDX,
+    Tex6 = ffi::GX_VA_TEX6,
+    Tex6MtxIdx = ffi::GX_VA_TEX6MTXIDX,
+    Tex7 = ffi::GX_VA_TEX7,
+    Tex7MtxIdx = ffi::GX_VA_TEX7MTXIDX,
 }
 
 /// Structure describing how a single vertex attribute will be referenced.
@@ -1248,10 +1250,10 @@ pub enum VtxAttr {
 pub struct VtxDesc(ffi::GXVtxDesc);
 
 #[derive(Copy, Clone, Debug)]
-#[repr(u8)]
+#[repr(u32)]
 pub enum ProjectionType {
-    Perspective = ffi::GX_PERSPECTIVE as _,
-    Orthographic = ffi::GX_ORTHOGRAPHIC as _,
+    Perspective = ffi::GX_PERSPECTIVE,
+    Orthographic = ffi::GX_ORTHOGRAPHIC,
 }
 
 #[derive(Clone, Copy, Debug)]
