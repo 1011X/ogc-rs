@@ -18,15 +18,19 @@
 
 #![no_std]
 #![allow(dead_code)]
-#![feature(panic_info_message)]
 #![feature(alloc_error_handler)]
 #![feature(negative_impls)]
-#![feature(core_intrinsics)]
 #![feature(slice_ptr_get)]
 #![feature(allocator_api)]
-#![feature(strict_provenance)]
+#![feature(asm_experimental_arch)]
 
 extern crate alloc;
+
+/// Interprocess Control / IOS Implementation
+///
+/// This module provides various low level functions to help with opening and using the underlying
+/// `IOS` subsystems
+pub mod ios;
 
 // Custom Error Implementation
 pub mod error;
@@ -87,6 +91,8 @@ pub mod cache;
 // TPL implementation
 pub mod tpl;
 
+pub mod time;
+
 #[cfg(feature = "glam_compat")]
 pub mod glam_impl;
 
@@ -99,8 +105,14 @@ cfg_if::cfg_if! {
     }
 }
 
-#[cfg(feature = "mmio")]
-pub mod mmio;
+//#[cfg(feature = "mmio")]
+cfg_if::cfg_if! {
+    if #[cfg(feature = "mmio")] {
+        pub mod mmio;
+    } else {
+        mod mmio;
+    }
+}
 
 ///Prelude
 pub mod prelude {
@@ -117,7 +129,7 @@ pub mod prelude {
     pub use crate::gx::*;
     pub use crate::input::*;
     pub use crate::system::*;
-    pub use crate::tpl::*;
+
     pub use crate::video::*;
     pub use crate::{print, println};
 

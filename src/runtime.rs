@@ -27,12 +27,12 @@ unsafe impl GlobalAlloc for OGCAllocator {
                 layout.size()
             );
         } else {
-            libc::memalign(layout.align(), layout.size()) as *mut u8
+            libc::memalign(layout.align().max(8), layout.size()).cast::<u8>()
         }
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
-        libc::free(ptr as *mut _);
+        libc::free(ptr.cast::<libc::c_void>());
     }
 }
 
@@ -40,19 +40,23 @@ unsafe impl GlobalAlloc for OGCAllocator {
 ///
 /// **Note**: The panic handler uses the ``println`` macro for output.
 /// In order for this to work ``Console`` and a minimal ``Video`` setup is required!
+#[cfg(feature = "default_panic_handler")]
 #[panic_handler]
 fn panic_handler(panic_info: &PanicInfo) -> ! {
     println!("#######################################");
     println!("# <[ PANIC ]> {} ", panic_info);
     println!("#######################################");
 
-    core::intrinsics::abort()
+    loop {
+        core::hint::spin_loop();
+    }
 }
 
 /// Allocation Error Handler for the Wii.
 ///
 /// **Note**: The allocation error handler uses the ``println`` macro for output.
 /// In order for this to work ``Console`` and a minimal ``Video`` setup is required!
+#[cfg(feature = "default_alloc_handler")]
 #[alloc_error_handler]
 fn alloc_error(layout: Layout) -> ! {
     println!("#######################################");
@@ -64,5 +68,7 @@ fn alloc_error(layout: Layout) -> ! {
     );
     println!("#######################################");
 
-    core::intrinsics::abort()
+    loop {
+        core::hint::spin_loop()
+    }
 }
