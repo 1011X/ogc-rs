@@ -2413,59 +2413,283 @@ impl Gx {
         unsafe { ffi::GX_End() }
     }
 
-    pub fn preload_entire_texture() {
+    /// Loads a given texture from DRAM into the texture memory.
+    ///
+    /// Accesses to this texture will bypass the texture cache tag look-up and
+    /// instead read the texels directly from texture memory. The texture
+    /// region must be the same size as the texture (see
+    /// [`Gx::init_tex_preload_region()`]).
+    ///
+    /// **Note**: This function loads the texture into texture memory, but to
+    /// use it as a source for the Texture Environment (TEV) unit, you must
+    /// first call [`Gx::load_tex_obj_preloaded()`]. The default configuration
+    /// (as set by [`Gx::init()`]) of texture memory has no preloaded regions,
+    /// so you must install your own region allocator callbacks using
+    /// [`Gx::set_tex_region_callback()`] and [`Gx::set_tlut_region_callback()`].
+    pub fn preload_entire_texture(obj: &Texture, region: &TexRegion) {
         unimplemented!()
     }
 
-    pub fn load_tlut() {
+    /// Loads a given texture from DRAM into the texture memory.
+    ///
+    /// Accesses to this texture will bypass the texture cache tag look-up and
+    /// instead read the texels directly from texture memory. The texture region
+    /// must be the same size as the texture (see
+    /// [`Gx::init_tex_preload_region()`]).
+    ///
+    /// **Note:** This function loads the texture into texture memory, but to
+    /// use it as a source for the Texture Environment (TEV) unit, you must
+    /// first call [`Gx::load_tex_obj_preloaded()`]. The default configuration
+    /// (as set by [`Gx::init()`]) of texture memory has no preloaded regions,
+    /// so you must install your own region allocator callbacks using
+    /// [`Gx::set_tex_region_callback()`] and [`Gx::set_tlut_region_callback()`].
+    ///
+    /// Arguments:
+    /// * `obj`: object describing the texture to load.
+    /// * `region`: TMEM texture region to load the texture into.
+    pub fn load_tlut(obj: &Texture, region: &TexRegion) {
         unimplemented!()
     }
 
-    pub fn set_draw_sync() {
+    /// This function sends a token into the command stream.
+    ///
+    /// When the token register is set, an interrupt will also be received by
+    /// the CPU. You can install a callback on this interrupt with
+    /// [`Gx::set_draw_sync_callback()`]. Draw syncs can be used to notify the
+    /// CPU that the graphics processor is finished using a shared resource (a
+    /// vertex array for instance).
+    ///
+    /// Arguments:
+    /// * `token`: 16-bit value to write to the token register.
+    pub fn set_draw_sync(token: u16) {
         unimplemented!()
     }
 
-    pub fn get_draw_sync() {
+    /// Returns the value of the token register, which is written using the
+    /// [`Gx::set_draw_sync()`] function.
+    ///
+    /// Returns the value of the token register.
+    pub fn get_draw_sync() -> u16 {
         unimplemented!()
     }
 
-    pub fn set_gp_metric() {
+    /// Sets two performance metrics to measure in the GP.
+    ///
+    /// `perf0` and `perf1` are set to measure. The initial metrics measured are
+    /// `Perf0::None` and `Perf1::None`, which return counts of zero for the
+    /// first call to [`Gx::read_gp_metric()`].
+    ///
+    /// Each performance counter has a unique set of events or ratios that it
+    /// can count. In some cases the same metric can be counted using both
+    /// counters, for example `Perf0::Vertices` and `Perf1::Vertices`. Ratios
+    /// (the metric name ends in `Ratio`) are multiplied by 1000 (1000 = all
+    /// misses/clips, etc., 0 = no misses/clips, etc.).
+    ///
+    /// **Note:** [`Gx::read_gp_metric()`] and [`Gx::clear_gp_metric()`] can be
+    /// used in the callback associated with the draw sync interrupt (see
+    /// [`Gx::set_draw_sync_callback()`]. This function should not be used in
+    /// the draw sync callback because it will insert tokens in the GP command
+    /// stream at random times.
+    ///
+    /// This function reads results from CPU-accessible registers in the GP,
+    /// therefore, this command *must not* be used in a display list. In
+    /// addition, the performance counters in some cases are triggered by
+    /// sending tokens through the graphics FIFO to the GP. This implies that
+    /// the function should only be used in immediate mode (when the graphics
+    /// FIFO is connected to the CPU and the GP at the same time). It may also
+    /// be necessary to send a draw sync token using [`Gx::set_draw_sync()`] or
+    /// call [`Gx::set_draw_done()`] after [`Gx::read_gp_metric()`] to ensure
+    /// that the state has actually been processed by the GP.
+    ///
+    /// Arguments:
+    /// * `perf0`: perf0-metrics to measure
+    /// * `perf1`: perf1-metrics to measure
+    pub fn set_gp_metric(perf0: Perf0, perf1: Perf1) {
         unimplemented!()
     }
 
-    pub fn read_gp_metric() {
+    /// Returns the count of the previously set performance metrics.
+    ///
+    /// **Note:** The performance metrics can be set using
+    /// [`Gx::set_gp_metric()`]; the counters can be cleared using
+    /// [`Gx::clear_gp_metric()`].
+    ///
+    /// **Note:** [`Gx::read_gp_metric()`] and [`Gx::clear_gp_metric()`] can be
+    /// used in the callback associated with the draw sync interrupt (see
+    /// [`Gx::set_draw_sync_callback()`]. The function [`Gx::set_gp_metric()`]
+    /// should **not** be used in the draw sync callback because it will insert
+    /// tokens in the GP command stream at random times.
+    ///
+    /// This function reads results from CPU-accessible registers in the GP,
+    /// therefore, this command *must not* be used in a display list. It may
+    /// also be necessary to send a draw sync token using [`Gx::set_draw_sync()`]
+    /// or [`Gx::set_draw_done()`] before [`Gx::read_gp_metric()`] is called to
+    /// ensure that the state has actually been processed by the GP.
+    ///
+    /// Arguments:
+    /// * `cnt0`: current value of GP counter 0
+    /// * `cnt1`: current value of GP counter 1
+    pub fn read_gp_metric(cnt0: &mut u32, cnt1: &mut u32) {
         unimplemented!()
     }
 
-    pub fn set_vcache_metric() {
+    /// Sets the metric the Vertex Cache performance counter will measure.
+    ///
+    /// It is possible to monitor a particular attribute or all attributes
+    /// using _attr_.
+    ///
+    /// **Note:** To clear the counter, call [`Gx::clear_vcache_metric()`]; to
+    /// read the counter value, call [`Gx::read_vcache_metric()`].
+    ///
+    /// Arguments:
+    /// * `attr`: vcache-metrics to measure
+    pub fn set_vcache_metric(attr: u32) {
         unimplemented!()
     }
 
-    pub fn read_vcache_metric() {
+    /// Returns Vertex Cache performance counters.
+    ///
+    /// Each call to this function resets the counter to zero.
+    /// [`Gx::set_vcache_metric()`] sets the metric to be measured by the Vertex
+    /// Cache performance counter.
+    ///
+    /// This function reads CPU-accessible registers in the GP and so should not
+    /// be called in a display list.
+    ///
+    /// Arguments:
+    /// * `check`: total number of accesses to the vertex cache
+    /// * `miss`: total number of cache misses to the vertex cache
+    /// * `stall`: number of GP clocks that the vertex cache was stalled
+    pub fn read_vcache_metric(check: &mut u32, miss: &mut u32, stall: &mut u32) {
         unimplemented!()
     }
 
-    pub fn copy_tex() {
+    /// Copies the embedded framebuffer (EFB) to the texture image buffer _dest_
+    /// in main memory.
+    ///
+    /// This is useful when creating textures using the Graphics Processor (GP).
+    /// If the _clear_ flag is set to `true`, the EFB will be cleared to the
+    /// current color (see [`Gx::set_copy_clear()`] during the copy operation.
+    ///
+    /// Arguments:
+    /// * `dest`: pointer to the image buffer in main memory. _dest_ should be
+    ///   32B aligned.
+    /// * `clear`: flag that indicates framebuffer should be cleared if `true`.
+    pub fn copy_tex(dest: &mut [u8], clear: bool) {
         unimplemented!()
     }
 
-    pub fn redirect_write_gather_pipe() {
+    /// Temporarily points the CPU's write-gather pipe at a new location.
+    ///
+    /// After calling this function, subsequent writes to the address returned
+    /// by this function (or the WGPipe union) will be gathered and sent to a
+    /// destination buffer. The write pointer is automatically incremented by
+    /// the GP. The write-gather pipe can be restored by calling
+    /// [`Gx::restore_write_gather_pipe()`]. This function cannot be called
+    /// between a [`Gx::begin()`]/[`Gx::end()`] pair.
+    ///
+    /// **Note:** The destination buffer, referred to by _ptr,_ must be 32-byte
+    /// aligned. The amount of data written should also be 32-byte aligned. If
+    /// it is not, zeroes will be added to pad the destination buffer to 32
+    /// bytes. No part of the destination buffer should be modified inside the
+    /// CPU caches - this may introduce cache incoherency problems.
+    ///
+    /// **Note:** The write-gather pipe is one of the fastest ways to move data
+    /// out of the CPU (the other being the locked cache DMA). In general, you
+    /// are compute-bound when sending data from the CPU.
+    ///
+    /// **Note:** This function is cheaper than trying to create a fake CPU fifo
+    /// around a destination buffer, which requires calls to
+    /// [`Gx::set_cpu_fifo()`], [`Gx::init_fifo_base()`], etc. This function
+    /// performs very lightweight state saves by assuming that the CPU and GP
+    /// FIFOs never change.
+    ///
+    /// **No GX commands can be called until the write-gather pipe is restored.
+    /// You MUST call [`Gx::restore_write_gather_pipe()`] before calling this
+    /// function again, or else the final call to restore the pipe will fail.**
+    ///
+    /// Arguments:
+    /// * `ptr`: to destination buffer, 32-byte aligned
+    ///
+    /// Returns: real address of the write-gather "port". All writes to this
+    /// address will be gathered by the CPU write gather pipe. You may also use
+    /// the WGPipe union. If you do not use the WGPipe union, ensure that your
+    /// local variable is volatile.
+    pub fn redirect_write_gather_pipe(ptr: &mut [u8]) -> *mut c_void {
         unimplemented!()
     }
 
-    pub fn set_draw_done_callback() {
+    /// Installs a callback that is invoked whenever a `DrawDone` command is
+    /// encountered by the GP.
+    ///
+    /// The `DrawDone` command is sent by [`Gx::set_draw_done()`].
+    ///
+    /// **Note:** By the time the callback is invoked, the GP will already have
+    /// resumed reading from the FIFO, if there are any commands in it.
+    ///
+    /// Arguments:
+    /// * `cb`: callback to be invoked when DrawDone is encountered
+    ///
+    /// Returns: pointer to the previous callback
+    pub fn set_draw_done_callback(cb: DrawDoneCallback) -> DrawDoneCallback {
         unimplemented!()
     }
 
-    pub fn set_tex_region_callback() {
+    /// Sets the callback function called by [`Gx::load_tex_obj()`] to obtain an
+    /// available texture region.
+    ///
+    /// [`Gx::init()`] calls this function to set a default region-assignment
+    /// policy. A programmer can override this default region assignment by
+    /// implementing their own callback function. A pointer to the texture
+    /// object and the texture map ID that are passed to [`Gx::load_tex_obj()`]
+    /// are provided to the callback function.
+    ///
+    /// Arguments:
+    /// * `cb`: ptr to a function that takes a pointer to a [`GXTexObj`] and a
+    ///   texmapid as a parameter and returns a pointer to a [`GXTexRegion`].
+    ///
+    /// Returns: pointer to the previously set callback.
+    pub fn set_tex_region_callback(cb: TexRegionCallback) -> TexRegionCallback {
         unimplemented!()
     }
 
-    pub fn set_tlut_region_callback() {
+    /// Sets the callback function called by [`Gx::load_tlut()`] to find the
+    /// region into which to load the TLUT.
+    ///
+    /// [`Gx::load_tex_obj()`] will also call _cb_ to obtain the Texture Look-up
+    /// Table (TLUT) region when the texture format is color-index.
+    ///
+    /// [`Gx::init()`] calls [`Gx::set_tlut_region_callback()`] to set a default
+    /// TLUT index-to-region mapping. The name for the TLUT from the texture
+    /// object is provided as an argument to the callback. The callback should
+    /// return a pointer to the GXTlutRegion for this TLUT index.
+    ///
+    /// **Note:** For a given *tlut_name* (in the [`GXTlutRegionCallback`]
+    /// struct), _cb_ must always return the same [`GXTlutRegion`]; this is
+    /// because [`Gx::load_tlut()`] will initialize data into the
+    /// [`GXTlutRegion`] which [`Gx::load_tex_obj()`] will subsequently use.
+    ///
+    /// Arguments:
+    /// * `cb`: ptr to a function that takes a u32 TLUT name as a parameter and
+    ///   returns a pointer to a [`GXTlutRegion`].
+    ///
+    /// Returns: pointer to the previously set callback.
+    pub fn set_tlut_region_callback(cb: TlutRegionCallback) -> TlutRegionCallback {
         unimplemented!()
     }
 
-    pub fn set_vtx_descv() {
+    /// Sets the type of multiple attributes.
+    ///
+    /// This function is used when more than one attribute needs to be set
+    /// (e.g., during initialization of geometry).
+    ///
+    /// **Note:** The constant `GX_MAX_VTXATTRFMT_LISTSIZE` can be used to
+    /// allocate memory for _attr_list_.
+    ///
+    /// Arguments:
+    /// * `attr_list`: array of pointers to [`GXVtxDesc`] structs; last element
+    /// of the array should be `GX_VA_NULL`.
+    pub fn set_vtx_descv(attr_list: &[VtxDesc]) {
         unimplemented!()
     }
 }
@@ -2541,3 +2765,7 @@ pub enum ColorChannel {
     Color1 = ffi::GX_COLOR1,
 }
 
+pub struct TexRegion;
+pub type DrawDoneCallback = ffi::GXDrawDoneCallback;
+pub type TexRegionCallback = ffi::GXTexRegionCallback;
+pub type TlutRegionCallback = ffi::GXTlutRegionCallback;
