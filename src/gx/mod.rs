@@ -852,6 +852,20 @@ pub enum TexFilter {
     Linear = ffi::GX_LINEAR,
 }
 
+impl From<u8> for TexFilter {
+    fn from(x: u8) -> Self {
+        match x as u32 {
+            ffi::GX_NEAR => TexFilter::Near,
+            ffi::GX_NEAR_MIP_LIN => TexFilter::NearMipLin,
+            ffi::GX_NEAR_MIP_NEAR => TexFilter::NearMipNear,
+            ffi::GX_LIN_MIP_LIN => TexFilter::LinMipLin,
+            ffi::GX_LIN_MIP_NEAR => TexFilter::LinMipNear,
+            ffi::GX_LINEAR => TexFilter::Linear,
+            _ => panic!("invalid texture filter type")
+        }
+    }
+}
+
 /// Texture wrap modes
 #[derive(Copy, Clone, Debug)]
 #[repr(u32)]
@@ -914,6 +928,26 @@ pub enum TextureFormat {
     CMPR = ffi::GX_TF_CMPR,
 }
 
+
+impl From<u32> for TextureFormat {
+    fn from(x: u32) -> Self {
+        match x {
+            ffi::GX_TF_I4 => TextureFormat::I4,
+            ffi::GX_TF_I8 => TextureFormat::I8,
+            ffi::GX_TF_IA4 => TextureFormat::IA4,
+            ffi::GX_TF_IA8 => TextureFormat::IA8,
+            ffi::GX_TF_RGB565 => TextureFormat::RGB565,
+            ffi::GX_TF_RGB5A3 => TextureFormat::RGB5A3,
+            ffi::GX_TF_RGBA8 => TextureFormat::RGBA8,
+            ffi::GX_TF_CI4 => TextureFormat::CI4,
+            ffi::GX_TF_CI8 => TextureFormat::CI8,
+            ffi::GX_TF_CI14 => TextureFormat::CI14,
+            ffi::GX_TF_CMPR => TextureFormat::CMPR,
+            _ => panic!("invalid texture format"),
+	    }
+    }
+}
+
 /// Object containing information about a texture.
 #[derive(Debug)]
 pub struct Texture {
@@ -926,7 +960,7 @@ impl Texture {
     pub fn get_buffer_size(wd: u16, ht: u16, fmt: u32, mipmap: bool, maxlod: u8) -> usize {
         unsafe { ffi::GX_GetTexBufferSize(wd, ht, fmt, mipmap as u8, maxlod) as usize }
     }
-    
+
     /// Used to initialize or change a texture object for non-color index textures.
     pub fn new(
         img: &[u8],
@@ -938,17 +972,17 @@ impl Texture {
     ) -> Texture {
         let mut img_data = Buf32::new(img.len());
         let mut texture = core::mem::MaybeUninit::zeroed();
-        
+
         // populate image data
         for (src, dest) in img.iter().zip(img_data.as_mut_slice().iter_mut()) {
             *dest = *src;
         }
-        
+
         // error in debug mode when dimensions are too big.
         // in release it doesn't matter; libogc bit-masks the upper bits out.
         debug_assert!(width <= 1024, "max width for texture is 1024");
         debug_assert!(height <= 1024, "max height for texture is 1024");
-        
+
         // SAFETY:
         // * ffi::GX_InitTexObj():
         //   * img_data is aligned to 32B boundary by design.
@@ -965,7 +999,7 @@ impl Texture {
                 wrap.1 as u8,
                 mipmap as u8,
             );
-            
+
             Texture {
                 inner: texture.assume_init(),
                 img: img_data,
@@ -985,24 +1019,24 @@ impl Texture {
     ) -> Texture {
         let mut img_data = Buf32::new(img.len());
         let mut texture = core::mem::MaybeUninit::zeroed();
-        
+
         // populate image data
         for (src, dest) in img.iter().zip(img_data.as_mut_slice().iter_mut()) {
             *dest = *src;
         }
-        
+
         // error in debug mode when dimensions are too big.
         // in release it doesn't matter; libogc bit-masks the upper bits out.
         debug_assert!(width <= 1024, "max texture width is 1024, got {}", width);
         debug_assert!(height <= 1024, "max texture height is 1024, got {}", height);
-        
+
         // error in debug mode when mipmaps sizes aren't a power of 2.
         // not sure what this does in release mode
         if mipmap {
             debug_assert!(width.is_power_of_two(), "mipmap texture width must be power of 2");
             debug_assert!(height.is_power_of_two(), "mipmap texture height must be power of 2");
         }
-        
+
         // SAFETY:
         // * ffi::GX_InitTexObj():
         //   * img_data is aligned to 32B boundary by design.
@@ -1020,7 +1054,7 @@ impl Texture {
                 mipmap as u8,
                 tlut_name,
             );
-            
+
             Texture {
                 inner: texture.assume_init(),
                 img: img_data,
@@ -1030,32 +1064,53 @@ impl Texture {
 
     /// Returns the texture height.
     pub fn height(&self) -> u16 {
-        unsafe { ffi::GX_GetTexObjHeight(&self.inner as *const _) }
+        unsafe { ffi::GX_GetTexObjHeight(&self.inner) }
     }
 
     /// Returns the texture width.
     pub fn width(&self) -> u16 {
-        unsafe { ffi::GX_GetTexObjWidth(&self.inner as *const _) }
+        unsafe { ffi::GX_GetTexObjWidth(&self.inner) }
     }
 
     /// Returns `true` if the texture's mipmap flag is enabled.
     pub fn is_mipmapped(&self) -> bool {
-        unsafe { ffi::GX_GetTexObjMipMap(&self.inner as *const _) != 0 }
+        unsafe { ffi::GX_GetTexObjMipMap(&self.inner) != 0 }
     }
-    
-    /// Returns the texture wrap S mode described by the texture object.
+
+    /// Returns the pixel format for the given texture.
+    pub fn get_format(&self) -> TextureFormat {
+        unsafe { ffi::GX_GetTexObjFmt(&self.inner).into() }
+    }
+
+    /// Returns the horizontal texture wrap mode for the given texture.
     pub fn get_wrap_s(&self) -> WrapMode {
-        unsafe { ffi::GX_GetTexObjWrapS(&self.inner as *const _).into() }
+        unsafe { ffi::GX_GetTexObjWrapS(&self.inner).into() }
     }
-    
-    /// Returns the texture wrap T mode described by the texture object.
+
+    /// Returns the vertical texture wrap mode for the given texture.
     pub fn get_wrap_t(&self) -> WrapMode {
-        unsafe { ffi::GX_GetTexObjWrapT(&self.inner as *const _).into() }
+        unsafe { ffi::GX_GetTexObjWrapT(&self.inner).into() }
     }
-    
-    /// Returns the texture wrap mode for both S and T described by the texture object.
+
+    /// Returns the texture wrap modes for the given texture.
     pub fn get_wrap(&self) -> (WrapMode, WrapMode) {
         (self.get_wrap_s(), self.get_wrap_t())
+    }
+
+	/// Returns the minimum and maximum filter modes for the given texture.
+    pub fn get_filter_mode(&self) -> (TexFilter, TexFilter) {
+        let mut minfilt = 0;
+        let mut maxfilt = 0;
+        unsafe { ffi::GX_GetTexObjFilterMode(&self.inner, &mut minfilt, &mut maxfilt) }
+        (minfilt.into(), maxfilt.into())
+    }
+
+	/// Returns the minimum and maximum LOD values for the given texture.
+    pub fn get_lod(&self) -> (f32, f32) {
+        let mut minlod = 0.0;
+        let mut maxlod = 0.0;
+        unsafe { ffi::GX_GetTexObjLOD(&self.inner, &mut minlod, &mut maxlod) }
+        (minlod, maxlod)
     }
 
     /// Enables bias clamping for texture LOD.
@@ -1193,18 +1248,19 @@ impl Texture {
         unsafe { ffi::GX_InitTexObjWrapMode(&mut self.inner, wrap_s as u8, wrap_t as u8) }
     }
 
-    pub fn gxtexobj(&mut self) -> &mut GXTexObj {
+    pub fn as_gxtexobj(&self) -> &GXTexObj {
+        &self.inner
+    }
+
+    pub fn as_mut_gxtexobj(&mut self) -> &mut GXTexObj {
         &mut self.inner
+    }
+
+    pub fn into_inner(self) -> GXTexObj {
+    	self.inner
     }
 }
 
-/*
-impl From<GXTexObj> for Texture {
-    fn from(obj: GXTexObj) -> Self {
-        Self(obj, PhantomData)
-    }
-}
-*/
 
 /// Vertex attribute array type
 #[derive(Copy, Clone, Debug)]
@@ -2697,18 +2753,10 @@ impl Gx {
 //All the following data is found from
 // http://hitmen.c02.at/files/yagcd/yagcd/chap5.html#sec5.3
 
-//THIS IS PROBABLY NOT CORRECT IF SOMEONE COULD correct it for me that would be amazing!
+/// `display_list` slice should be 32-byte aligned and padded to the next
+/// 32-byte boundary. May want to use [`Buf32`] for this.
 fn call_display_list(display_list: &[u8]) {
     let ptr = display_list.as_ptr().map_addr(mem::to_physical);
-
-    assert!(
-        display_list.as_ptr().align_offset(32) == 0,
-        "The display list is not correctly 32 byte aligned."
-    );
-    assert!(
-        display_list.len() % 32 == 0,
-        "The display list is not correctly padded to 32 bytes. Please pad with GPCommand::Nop"
-    );
 
     GX_PIPE.write(GPCommand::CallDisplayList as u8);
 
