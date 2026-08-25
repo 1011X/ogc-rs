@@ -963,7 +963,7 @@ impl Texture {
 
     /// Used to initialize or change a texture object for non-color index textures.
     pub fn new(
-        img: &'a [u8],
+        img: &[u8],
         width: u16,
         height: u16,
         format: u8,
@@ -1012,7 +1012,7 @@ impl Texture {
 
     /// Used to initialize or change a texture object when the texture is color index format.
     pub fn with_color_idx(
-        img: &'a [u8],
+        img: &[u8],
         width: u16,
         height: u16,
         format: u8,
@@ -2491,29 +2491,31 @@ impl Gx {
     /// (as set by [`Gx::init()`]) of texture memory has no preloaded regions,
     /// so you must install your own region allocator callbacks using
     /// [`Gx::set_tex_region_callback()`] and [`Gx::set_tlut_region_callback()`].
-    pub fn preload_entire_texture(obj: &Texture, region: &TexRegion) {
+    pub fn preload_entire_texture(obj: &Texture, region: &mut TexRegion) {
         unimplemented!()
     }
 
-    /// Loads a given texture from DRAM into the texture memory.
+    /// Copies a Texture Look-Up Table (TLUT) from main memory to Texture
+    /// Memory (TMEM).
     ///
-    /// Accesses to this texture will bypass the texture cache tag look-up and
-    /// instead read the texels directly from texture memory. The texture region
-    /// must be the same size as the texture (see
-    /// [`Gx::init_tex_preload_region()`]).
+    /// The *tlut_name* parameter is the name of a pre-allocated area of TMEM.
+    /// The callback function set by [`Gx::set_tlut_region_callback()`] converts
+    /// the *tlut_name* into a [`TlutRegion`] pointer. The TLUT is loaded in the
+    /// TMEM region described by this pointer. The TLUT object *obj* describes
+    /// the location of the TLUT in main memory, the TLUT format, and the TLUT
+    /// size. *obj* should have been previously initialized using
+    /// [`Gx::init_tlut_obj()`].
     ///
-    /// **Note:** This function loads the texture into texture memory, but to
-    /// use it as a source for the Texture Environment (TEV) unit, you must
-    /// first call [`Gx::load_tex_obj_preloaded()`]. The default configuration
-    /// (as set by [`Gx::init()`]) of texture memory has no preloaded regions,
-    /// so you must install your own region allocator callbacks using
-    /// [`Gx::set_tex_region_callback()`] and [`Gx::set_tlut_region_callback()`].
-    ///
-    /// Arguments:
-    /// * `obj`: object describing the texture to load.
-    /// * `region`: TMEM texture region to load the texture into.
-    pub fn load_tlut(obj: &Texture, region: &TexRegion) {
-        unimplemented!()
+    /// **Note**: [`Gx::init()`] sets a default callback to convert *tlut_names*
+    /// from TLUT name to [`TlutRegion`] pointers. The default configuration of
+    /// TMEM has 20 TLUTs, 16 each 256 entries by 16 bits, and 4 each 1k entries
+    /// by 16 bits. This configuration can be overriden by calling
+    /// [`Gx::init_tlut_region()`] and [`Gx::init_tex_cache_region()`] to
+    /// allocate TMEM. Then you can define your own region allocation scheme
+    /// using [`Gx::set_tlut_region_callback()`] and
+    /// [`Gx::set_tex_region_callback()`].
+    pub fn load_tlut(obj: &Tlut, tlut_name: u32) {
+        unimplemented!();
     }
 
     /// This function sends a token into the command stream.
@@ -2822,7 +2824,10 @@ pub enum ColorChannel {
     Color1 = ffi::GX_COLOR1,
 }
 
-pub struct TexRegion;
+#[repr(transparent)]
+pub struct TexRegion {
+    inner: ffi::GXTexRegion,
+}
 pub type DrawDoneCallback = ffi::GXDrawDoneCallback;
 pub type TexRegionCallback = ffi::GXTexRegionCallback;
 pub type TlutRegionCallback = ffi::GXTlutRegionCallback;
