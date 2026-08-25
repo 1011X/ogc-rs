@@ -1,7 +1,7 @@
 #![no_std]
-#![feature(start)]
+#![no_main]
 
-use core::{alloc::Layout, mem::ManuallyDrop};
+use core::mem::ManuallyDrop;
 
 use ogc_rs::{
     ffi::{
@@ -22,10 +22,17 @@ extern crate alloc;
 use alloc::vec;
 const WHITE_BYTES: &[u8] = include_bytes!("../white.png");
 
-#[start]
-fn main(_argc: isize, _argv: *const *const u8) -> isize {
+#[no_mangle]
+extern "C" fn main(_argc: isize, _argv: *const *const u8) -> isize {
     let vi = Video::init();
     let mut config = Video::get_preferred_mode();
+
+    // Add letterbox on PAL to avoid stretching
+    if config.extern_framebuffer_height > config.embed_framebuffer_height {
+        config.vi_y_origin = (config.extern_framebuffer_height - config.embed_framebuffer_height) / 2;
+        config.vi_height = 480;
+        config.extern_framebuffer_height = 480;
+    }
 
     Video::configure(&config);
     unsafe { Video::set_next_framebuffer(vi.framebuffer) };
@@ -44,9 +51,7 @@ fn main(_argc: isize, _argv: *const *const u8) -> isize {
         0.,
         1.,
     );
-    Gx::set_disp_copy_y_scale(
-        (config.extern_framebuffer_height / config.embed_framebuffer_height).into(),
-    );
+    Gx::set_disp_copy_y_scale(1.0);
     Gx::set_scissor(
         0,
         0,
@@ -89,8 +94,15 @@ fn main(_argc: isize, _argv: *const *const u8) -> isize {
     let mut work_buf = vec![0u8; header.required_bytes_rgba8bpc()];
     let mut rgba_bytes = minipng::decode_png(WHITE_BYTES, &mut work_buf).unwrap();
     rgba_bytes.convert_to_rgba8bpc().unwrap();
-    let texture_bytes = gctex::encode(
+    let tex_size = gctex::compute_image_size(
         gctex::TextureFormat::CMPR,
+        header.width(),
+        header.height(),
+    ) as usize;
+    let mut texture_bytes = ogc_rs::utils::Buf32::new(tex_size);
+    gctex::encode_into(
+        gctex::TextureFormat::CMPR,
+        &mut texture_bytes,
         rgba_bytes.pixels(),
         header.width(),
         header.height(),

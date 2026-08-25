@@ -9,7 +9,7 @@ use ffi::guQuaternion;
 use num_traits::Float;
 
 use crate::{
-    ffi::{self, guVector, Mtx as Mtx34, Mtx44},
+    ffi::{self, Mtx as Mtx34, Mtx44, guVector},
     gx::{self, Gx},
 };
 
@@ -418,7 +418,7 @@ impl Mat4 {
                 0.0,
                 -(top + bottom) * top_bottom_aspect,
             ],
-            [0.0, 0.0, -(1.0) * plane, -(z_far) * plane],
+            [0.0, 0.0, -plane, -(z_far) * plane],
             [0.0, 0.0, 0.0, 1.0],
         ])
     }

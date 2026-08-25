@@ -1,5 +1,5 @@
 #![no_std]
-#![feature(start)]
+#![no_main]
 
 use core::mem::ManuallyDrop;
 
@@ -15,10 +15,17 @@ use ogc_rs::{
 
 extern crate alloc;
 
-#[start]
-fn main(_argc: isize, _argv: *const *const u8) -> isize {
+#[no_mangle]
+extern "C" fn main(_argc: isize, _argv: *const *const u8) -> isize {
     let vi = Video::init();
     let mut config = Video::get_preferred_mode();
+
+    // Add letterbox on PAL to avoid stretching
+    if config.extern_framebuffer_height > config.embed_framebuffer_height {
+        config.vi_y_origin = (config.extern_framebuffer_height - config.embed_framebuffer_height) / 2;
+        config.vi_height = 480;
+        config.extern_framebuffer_height = 480;
+    }
 
     Video::configure(&config);
     unsafe { Video::set_next_framebuffer(vi.framebuffer) };
@@ -37,9 +44,7 @@ fn main(_argc: isize, _argv: *const *const u8) -> isize {
         0.,
         1.,
     );
-    Gx::set_disp_copy_y_scale(
-        (config.extern_framebuffer_height / config.embed_framebuffer_height).into(),
-    );
+    Gx::set_disp_copy_y_scale(1.0);
     Gx::set_scissor(
         0,
         0,

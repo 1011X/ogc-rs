@@ -15,7 +15,7 @@ use num_traits::Float;
 
 use crate::ffi::{self, Mtx as Mtx34, Mtx44};
 use crate::gx::regs::BPReg;
-use crate::lwp;
+use crate::{cache, lwp};
 use crate::utils::{Buf32, mem};
 
 use self::regs::XFReg;
@@ -963,7 +963,7 @@ impl Texture {
 
     /// Used to initialize or change a texture object for non-color index textures.
     pub fn new(
-        img: &[u8],
+        img: &'a [u8],
         width: u16,
         height: u16,
         format: u8,
@@ -989,6 +989,9 @@ impl Texture {
         // * texture.assume_init():
         //   * texture is initialized to zero above.
         unsafe {
+            cache::data_cache_flush(img);
+        }
+        unsafe {
             ffi::GX_InitTexObj(
                 texture.as_mut_ptr() as *mut _,
                 img_data.as_mut_ptr() as *mut _,
@@ -1009,7 +1012,7 @@ impl Texture {
 
     /// Used to initialize or change a texture object when the texture is color index format.
     pub fn with_color_idx(
-        img: &[u8],
+        img: &'a [u8],
         width: u16,
         height: u16,
         format: u8,
@@ -1042,6 +1045,9 @@ impl Texture {
         //   * img_data is aligned to 32B boundary by design.
         // * texture.assume_init():
         //   * texture is initialized to zero above.
+        unsafe {
+            cache::data_cache_flush(img);
+        }
         unsafe {
             ffi::GX_InitTexObjCI(
                 texture.as_mut_ptr() as *mut _,
@@ -1453,7 +1459,7 @@ impl Gx {
     /// # Safety
     /// This function resets CPU accessible counters, so it should **not** be used in a display list.
     pub unsafe fn clear_gp_metric() {
-        ffi::GX_ClearGPMetric()
+        unsafe { ffi::GX_ClearGPMetric() }
     }
 
     /// Clears the Vertex Cache performance counter.
@@ -1504,7 +1510,7 @@ impl Gx {
     pub unsafe fn set_breakpt_callback(
         cb: Option<unsafe extern "C" fn()>,
     ) -> Option<unsafe extern "C" fn()> {
-        ffi::GX_SetBreakPtCallback(cb)
+        unsafe { ffi::GX_SetBreakPtCallback(cb) }
     }
 
     /// Allows reads from the FIFO currently attached to the Graphics Processor (GP) to resume.
@@ -1524,7 +1530,7 @@ impl Gx {
     /// # Safety
     /// This function should be avoided; use the GP performance metric functions instead.
     pub unsafe fn init_xf_ras_metric() {
-        ffi::GX_InitXfRasMetric()
+        unsafe { ffi::GX_InitXfRasMetric() }
     }
 
     /// Reads the current status of the GP.
@@ -1604,7 +1610,7 @@ impl Gx {
     /// # Safety
     /// This function must be called between successive calls to [`Gx::redirect_write_gather_pipe()`].
     pub unsafe fn restore_write_gather_pipe() {
-        ffi::GX_RestoreWriteGatherPipe()
+        unsafe { ffi::GX_RestoreWriteGatherPipe() }
     }
 
     /// Sends a DrawDone command to the GP.
@@ -1675,8 +1681,8 @@ impl Gx {
         BPReg::PE_CLEAR_GB.load(u32::from_be_bytes([
             0u8,
             0u8,
-            background.0.b,
             background.0.g,
+            background.0.b,
         ]));
 
         BPReg::PE_CLEAR_Z.load(z_value);
@@ -1884,7 +1890,7 @@ impl Gx {
     ///
     /// See [GX_CopyDisp](https://libogc.devkitpro.org/gx_8h.html#a9ed0ae3f900abb6af2e930dff7a6bc28) for more.
     pub unsafe fn copy_disp(dest: *mut c_void, clear: bool) {
-        ffi::GX_CopyDisp(dest, clear as u8)
+        unsafe { ffi::GX_CopyDisp(dest, clear as u8) }
     }
 
     /// Sets the gamma correction applied to pixels during EFB to XFB copy operation.
@@ -2129,6 +2135,9 @@ impl Gx {
     /// Sets the array base pointer and stride for a single attribute.
     /// See [GX_SetArray](https://libogc.devkitpro.org/gx_8h.html#a5164fc6aa2a678d792af80d94bfa1ec2) for more.
     pub fn set_array<T>(attr: u32, array: &[T], stride: u8) {
+        unsafe {
+            cache::data_cache_flush(array);
+        }
         unsafe { ffi::GX_SetArray(attr, array.as_ptr() as *mut c_void, stride) }
     }
 
@@ -2163,8 +2172,8 @@ impl Gx {
     /// Allows the CPU to write color directly to the Embedded Frame Buffer (EFB) at position x, y.
     /// See [GX_PokeARGB](https://libogc.devkitpro.org/gx_8h.html#a5038d2f65e7959d64c68dcb1855353d8) for more.
     pub fn poke_argb(x: u16, y: u16, color: Color) {
-        assert!(x < 640, "x must be less than 640, currently {}", x);
-        assert!(y < 528, "y must be less than 527, currently {}", y);
+        assert!(x < 640, "x must be less than 640, currently {x}");
+        assert!(y < 528, "y must be less than 527, currently {y}");
         unsafe {
             ffi::GX_PokeARGB(x, y, color.0);
         }
