@@ -2686,8 +2686,8 @@ impl Gx {
     /// * `dest`: pointer to the image buffer in main memory. _dest_ should be
     ///   32B aligned.
     /// * `clear`: flag that indicates framebuffer should be cleared if `true`.
-    pub fn copy_tex(dest: &mut [u8], clear: bool) {
-        unimplemented!()
+    pub fn copy_efb(mut dest: Buf32, clear: bool) {
+        unsafe { ffi::GX_CopyTex(dest.as_mut_ptr() as *mut _, clear as _) }
     }
 
     /// Temporarily points the CPU's write-gather pipe at a new location.
