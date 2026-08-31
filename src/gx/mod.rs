@@ -311,7 +311,7 @@ pub enum Perf1 {
 }
 
 #[repr(u32)]
-enum VCacheAttr {
+pub enum VCacheAttr {
     Position = ffi::GX_VC_POS,
     Normal = ffi::GX_VC_NRM,
     Color0 = ffi::GX_VC_CLR0,
