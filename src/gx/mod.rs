@@ -5,6 +5,7 @@
 
 use core::ffi::c_void;
 use core::mem::ManuallyDrop;
+use core::sync::atomic::{AtomicBool, Ordering};
 
 use alloc::vec::Vec;
 use bit_field::BitField;
@@ -22,6 +23,8 @@ use self::regs::XFReg;
 use self::types::{Gamma, PixelEngineControl, PixelFormat, VtxDest, ZFormat};
 
 pub const GX_PIPE: VolAddress<u8, (), Safe> = unsafe { VolAddress::new(0xCC00_8000) };
+
+pub static GX_INIT: AtomicBool = AtomicBool::new(false);
 
 mod regs;
 pub mod types;
@@ -1385,13 +1388,17 @@ impl Gx {
         let mut buf = ManuallyDrop::new(crate::utils::Buf32::new(size));
 
         // SAFETY: all safety is ensured by Buf32.
-        unsafe {
+        let fifo = unsafe {
             let fifo = ffi::GX_Init(
                 buf.as_mut_ptr().map_addr(mem::to_uncached) as *mut _,
                 buf.len() as u32,
             );
             &mut *(fifo as *mut Fifo)
-        }
+        };
+
+        // Mark GX as initialized.
+        GX_INIT.store(true, Ordering::Release);
+        fifo
     }
 
     /// Attaches *fifo* to the GP.
