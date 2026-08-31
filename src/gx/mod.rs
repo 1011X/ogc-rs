@@ -307,6 +307,23 @@ pub enum Perf1 {
     Vertices = ffi::GX_PERF1_VERTICES,
 }
 
+#[repr(u32)]
+enum VCacheAttr {
+    Position = ffi::GX_VC_POS,
+    Normal = ffi::GX_VC_NRM,
+    Color0 = ffi::GX_VC_CLR0,
+    Color1 = ffi::GX_VC_CLR1,
+    Texture0 = ffi::GX_VC_TEX0,
+    Texture1 = ffi::GX_VC_TEX1,
+    Texture2 = ffi::GX_VC_TEX2,
+    Texture3 = ffi::GX_VC_TEX3,
+    Texture4 = ffi::GX_VC_TEX4,
+    Texture5 = ffi::GX_VC_TEX5,
+    Texture6 = ffi::GX_VC_TEX6,
+    Texture7 = ffi::GX_VC_TEX7,
+    All = ffi::GX_VC_ALL,
+}
+
 /// Each pixel (source or destination) is multiplied by any of these controls.
 #[derive(Copy, Clone, Debug)]
 #[repr(u32)]
@@ -2610,8 +2627,8 @@ impl Gx {
     ///
     /// Arguments:
     /// * `attr`: vcache-metrics to measure
-    pub fn set_vcache_metric(attr: u32) {
-        unimplemented!()
+    pub fn set_vcache_metric(attr: VCacheAttr) {
+        unsafe { ffi::GX_SetVCacheMetric(attr as _) }
     }
 
     /// Returns Vertex Cache performance counters.
@@ -2620,15 +2637,19 @@ impl Gx {
     /// [`Gx::set_vcache_metric()`] sets the metric to be measured by the Vertex
     /// Cache performance counter.
     ///
-    /// This function reads CPU-accessible registers in the GP and so should not
-    /// be called in a display list.
+    /// **Warning**: This function reads CPU-accessible registers in the GP and
+    /// so should not be called in a display list.
     ///
-    /// Arguments:
+    /// Returns:
     /// * `check`: total number of accesses to the vertex cache
     /// * `miss`: total number of cache misses to the vertex cache
     /// * `stall`: number of GP clocks that the vertex cache was stalled
-    pub fn read_vcache_metric(check: &mut u32, miss: &mut u32, stall: &mut u32) {
-        unimplemented!()
+    pub fn read_vcache_metric() -> (u32, u32, u32) {
+        let mut check: u32 = 0;
+        let mut miss: u32 = 0;
+        let mut stall: u32 = 0;
+        unsafe { ffi::GX_ReadVCacheMetric(&mut check, &mut miss, &mut stall); }
+        (check, miss, stall)
     }
 
     /// Copies the embedded framebuffer (EFB) to the texture image buffer _dest_
