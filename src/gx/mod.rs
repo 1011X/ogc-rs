@@ -1434,6 +1434,22 @@ impl Gx {
         unsafe { ffi::GX_SetCPUFifo(&mut fifo.0) }
     }
 
+    /// If GX was initialized, returns a copy of the information from the currently attached CPU
+    /// FIFO. Otherwise, returns `None`.
+    pub fn get_cpu_fifo() -> Option<Fifo> {
+        if ! GX_INIT.load(Ordering::Acquire) {
+            return None;
+        }
+
+        let mut gxfifo = core::mem::MaybeUninit::uninit();
+        // SAFETY: according to the libogc source, it initializes all fields of gxfifo (as long as
+        // GX_Init() was called), so it can be assumed to be initialized after the call.
+        unsafe {
+            ffi::GX_GetCPUFifo(gxfifo.as_mut_ptr());
+            Some(Fifo(gxfifo.assume_init()))
+        }
+    }
+
     /// Returns the current GX thread.
     ///
     /// The current GX thread should be the thread that is currently responsible
