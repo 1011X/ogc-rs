@@ -1287,6 +1287,40 @@ impl Texture {
     }
 }
 
+#[repr(u32)]
+pub enum TlutFormat {
+    IA8 = ffi::GX_TL_IA8,
+    RGB565 = ffi::GX_TL_RGB565,
+    RGB5A3 = ffi::GX_TL_RGB5A3,
+}
+
+#[repr(transparent)]
+pub struct Tlut(ffi::GXTlutObj);
+
+impl Tlut {
+    /// Initializes a Texture Look-Up Table (TLUT) object.
+    ///
+    /// The TLUT object describes the location of the TLUT in main memory, its format and the number
+    /// of entries. The TLUT in main memory described by this object can be loaded into a TLUT
+    /// allocated in the texture memory using the [`Gx::load_tlut()`] function.
+    ///
+    /// Parameters:
+    /// `lut`: ptr to look-up table data; must be 32B aligned
+    /// `fmt`: format of the entries in the TLUT.
+    /// `entries`: number of entries in this table; maximum is 16,384
+    pub fn new(mut lut: Buf32, fmt: TlutFormat, entries: u16) -> Tlut {
+        // libogc doesn't check entries is within range. unsure of consequences, so let's just
+        // play it safe.
+        assert!(entries <= 16384);
+        let mut obj = core::mem::MaybeUninit::uninit();
+        unsafe {
+            ffi::GX_InitTlutObj(obj.as_mut_ptr(), lut.as_mut_ptr() as *mut _, fmt as _, entries);
+            // SAFETY: per libogc source, it zeroes and then initializes obj itself.
+            Tlut(obj.assume_init())
+        }
+    }
+}
+
 
 /// Vertex attribute array type
 #[derive(Copy, Clone, Debug)]
