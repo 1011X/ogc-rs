@@ -24,6 +24,30 @@ use self::types::{Gamma, PixelEngineControl, PixelFormat, VtxDest, ZFormat};
 
 pub const GX_PIPE: VolAddress<u8, (), Safe> = unsafe { VolAddress::new(0xCC00_8000) };
 
+// Number of components in an attribute
+pub const CLR_RGB: u32 = ffi::GX_CLR_RGB;
+pub const CLR_RGBA: u32 = ffi::GX_CLR_RGBA;
+pub const NRM_NBT: u32 = ffi::GX_NRM_NBT;
+pub const NRM_NBT3: u32 = ffi::GX_NRM_NBT3;
+pub const NRM_XYZ: u32 = ffi::GX_NRM_XYZ;
+pub const POS_XY: u32 = ffi::GX_POS_XY;
+pub const POS_XYZ: u32 = ffi::GX_POS_XYZ;
+pub const TEX_S: u32 = ffi::GX_TEX_S;
+pub const TEX_ST: u32 = ffi::GX_TEX_ST;
+
+// Attribute component types
+pub const RGB565: u32 = ffi::GX_RGB565;
+pub const RGB8: u32 = ffi::GX_RGB8;
+pub const RGBA4: u32 = ffi::GX_RGBA4;
+pub const RGBA6: u32 = ffi::GX_RGBA6;
+pub const RGBA8: u32 = ffi::GX_RGBA8;
+pub const RGBX8: u32 = ffi::GX_RGBX8;
+pub const U8: u32 = ffi::GX_U8;
+pub const U16: u32 = ffi::GX_U16;
+pub const S8: u32 = ffi::GX_S8;
+pub const S16: u32 = ffi::GX_S16;
+pub const F32: u32 = ffi::GX_F32;
+
 pub static GX_INIT: AtomicBool = AtomicBool::new(false);
 
 mod regs;
@@ -41,6 +65,19 @@ impl Color {
     pub const fn with_alpha(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self(ffi::GXColor { r, g, b, a })
     }
+}
+
+#[repr(u32)]
+pub enum ColorChannel {
+    Color0 = ffi::GX_COLOR0,
+    Color1 = ffi::GX_COLOR1,
+    Alpha0 = ffi::GX_ALPHA0,
+    Alpha1 = ffi::GX_ALPHA1,
+    Color0A0 = ffi::GX_COLOR0A0,
+    Color1A1 = ffi::GX_COLOR1A1,
+    ColorZero = ffi::GX_COLORZERO,
+    AlphaBump = ffi::GX_ALPHA_BUMP,
+    AlphaBumpN = ffi::GX_ALPHA_BUMPN,
 }
 
 /// Backface culling mode.
@@ -1326,35 +1363,49 @@ impl Tlut {
 #[derive(Copy, Clone, Debug)]
 #[repr(u32)]
 pub enum VtxAttr {
-    Null = ffi::GX_VA_NULL,
-    LightArray = ffi::GX_LIGHTARRAY,
-    NrmMtxArray = ffi::GX_NRMMTXARRAY,
-    PosMtxArray = ffi::GX_POSMTXARRAY,
-    TexMtxArray = ffi::GX_TEXMTXARRAY,
+    #[doc(hidden)]
+    PtnMtxIdx = ffi::GX_VA_PTNMTXIDX,
+    #[doc(hidden)]
+    Tex0MtxIdx = ffi::GX_VA_TEX0MTXIDX,
+    #[doc(hidden)]
+    Tex1MtxIdx = ffi::GX_VA_TEX1MTXIDX,
+    #[doc(hidden)]
+    Tex2MtxIdx = ffi::GX_VA_TEX2MTXIDX,
+    #[doc(hidden)]
+    Tex3MtxIdx = ffi::GX_VA_TEX3MTXIDX,
+    #[doc(hidden)]
+    Tex4MtxIdx = ffi::GX_VA_TEX4MTXIDX,
+    #[doc(hidden)]
+    Tex5MtxIdx = ffi::GX_VA_TEX5MTXIDX,
+    #[doc(hidden)]
+    Tex6MtxIdx = ffi::GX_VA_TEX6MTXIDX,
+    #[doc(hidden)]
+    Tex7MtxIdx = ffi::GX_VA_TEX7MTXIDX,
+    Pos = ffi::GX_VA_POS,
+    Nrm = ffi::GX_VA_NRM,
     Color0 = ffi::GX_VA_CLR0,
     Color1 = ffi::GX_VA_CLR1,
-    MaxAttr = ffi::GX_VA_MAXATTR,
+    Tex0 = ffi::GX_VA_TEX0,
+    Tex1 = ffi::GX_VA_TEX1,
+    Tex2 = ffi::GX_VA_TEX2,
+    Tex3 = ffi::GX_VA_TEX3,
+    Tex4 = ffi::GX_VA_TEX4,
+    Tex5 = ffi::GX_VA_TEX5,
+    Tex6 = ffi::GX_VA_TEX6,
+    Tex7 = ffi::GX_VA_TEX7,
+    #[doc(hidden)]
+    PosMtxArray = ffi::GX_POSMTXARRAY,
+    #[doc(hidden)]
+    NrmMtxArray = ffi::GX_NRMMTXARRAY,
+    #[doc(hidden)]
+    TexMtxArray = ffi::GX_TEXMTXARRAY,
+    #[doc(hidden)]
+    LightArray = ffi::GX_LIGHTARRAY,
     /// Normal, binormal, tangent
     Nbt = ffi::GX_VA_NBT,
-    Nrm = ffi::GX_VA_NRM,
-    Pos = ffi::GX_VA_POS,
-    PtnMtxIdx = ffi::GX_VA_PTNMTXIDX,
-    Tex0 = ffi::GX_VA_TEX0,
-    Tex0MtxIdx = ffi::GX_VA_TEX0MTXIDX,
-    Tex1 = ffi::GX_VA_TEX1,
-    Tex1MtxIdx = ffi::GX_VA_TEX1MTXIDX,
-    Tex2 = ffi::GX_VA_TEX2,
-    Tex2MtxIdx = ffi::GX_VA_TEX2MTXIDX,
-    Tex3 = ffi::GX_VA_TEX3,
-    Tex3MtxIdx = ffi::GX_VA_TEX3MTXIDX,
-    Tex4 = ffi::GX_VA_TEX4,
-    Tex4MtxIdx = ffi::GX_VA_TEX4MTXIDX,
-    Tex5 = ffi::GX_VA_TEX5,
-    Tex5MtxIdx = ffi::GX_VA_TEX5MTXIDX,
-    Tex6 = ffi::GX_VA_TEX6,
-    Tex6MtxIdx = ffi::GX_VA_TEX6MTXIDX,
-    Tex7 = ffi::GX_VA_TEX7,
-    Tex7MtxIdx = ffi::GX_VA_TEX7MTXIDX,
+    #[doc(hidden)]
+    MaxAttr = ffi::GX_VA_MAXATTR,
+    Null = ffi::GX_VA_NULL,
 }
 
 /// Structure describing how a single vertex attribute will be referenced.
@@ -2083,6 +2134,7 @@ impl Gx {
             ColorChannel::Color1 => XFReg::MATERIAL1.load(u32::from_be_bytes([
                 color.0.a, color.0.b, color.0.g, color.0.r,
             ])),
+            _ => todo!()
         }
         Gx::color_color(color);
     }
@@ -2096,6 +2148,7 @@ impl Gx {
             ColorChannel::Color1 => XFReg::AMBIENT1.load(u32::from_be_bytes([
                 color.0.a, color.0.b, color.0.g, color.0.r,
             ])),
+            _ => todo!()
         }
         Gx::color_color(color);
     }
@@ -2208,11 +2261,15 @@ impl Gx {
 
     /// Sets the array base pointer and stride for a single attribute.
     /// See [GX_SetArray](https://libogc.devkitpro.org/gx_8h.html#a5164fc6aa2a678d792af80d94bfa1ec2) for more.
-    pub fn set_array<T>(attr: u32, array: &[T], stride: u8) {
+    pub fn set_array<T>(attr: VtxAttr, array: &[T]) {
         unsafe {
             cache::data_cache_flush(array);
+            ffi::GX_SetArray(
+                attr as _,
+                array.as_ptr() as *mut c_void,
+                core::mem::size_of::<T>().try_into().unwrap()
+            )
         }
-        unsafe { ffi::GX_SetArray(attr, array.as_ptr() as *mut c_void, stride) }
     }
 
     /// Begins drawing of a graphics primitive.
@@ -2894,12 +2951,6 @@ pub enum GPDrawCommand {
     DrawLines = 0xA8,
     DrawLineStrip = 0xB0,
     DrawPoints = 0xBB,
-}
-
-#[repr(u32)]
-pub enum ColorChannel {
-    Color0 = ffi::GX_COLOR0,
-    Color1 = ffi::GX_COLOR1,
 }
 
 #[repr(transparent)]
