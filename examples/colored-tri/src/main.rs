@@ -1,8 +1,6 @@
 #![no_std]
 #![no_main]
 
-use core::mem::ManuallyDrop;
-
 use ogc_rs::{
     ffi::{GX_PASSCLR, GX_TEXCOORDNULL, GX_TEXMAP_NULL},
     gu::{Gu, RotationAxis},
@@ -29,7 +27,7 @@ extern "C" fn main(_argc: isize, _argv: *const *const u8) -> isize {
     Video::set_black(false);
     Video::flush();
 
-    let fifo = ManuallyDrop::new(Gx::init(256 * 1024));
+    let _fifo = Gx::init(256 * 1024);
     // Set values to use when video is flipped / cleared
     Gx::set_copy_clear(Color::new(0x00, 0x00, 0x00), 0x00_FF_FF_FF);
 
