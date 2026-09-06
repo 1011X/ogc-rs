@@ -5,7 +5,7 @@
 
 use core::ffi::c_void;
 use core::mem::ManuallyDrop;
-use core::sync::atomic::{AtomicBool, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
 
 use alloc::vec::Vec;
 use bit_field::BitField;
@@ -48,7 +48,7 @@ pub const S8: u32 = ffi::GX_S8;
 pub const S16: u32 = ffi::GX_S16;
 pub const F32: u32 = ffi::GX_F32;
 
-pub static GX_INIT: AtomicBool = AtomicBool::new(false);
+static GX_IS_INIT: AtomicBool = AtomicBool::new(false);
 
 mod regs;
 pub mod types;
@@ -443,6 +443,12 @@ pub struct Fifo(ffi::GXFifoObj);
 impl Default for Fifo {
     fn default() -> Self {
         Fifo::new()
+    }
+}
+
+impl AsRef<ffi::GXFifoObj> for Fifo {
+    fn as_ref(&self) -> &ffi::GXFifoObj {
+        &self.0
     }
 }
 
@@ -1438,6 +1444,16 @@ pub struct GpStatus {
     pub brkpt: bool,
 }
 
+#[derive(Clone, Copy, Debug)]
+#[repr(transparent)]
+pub struct VtxAttrFmt(ffi::GXVtxAttrFmt);
+
+impl AsRef<ffi::GXVtxAttrFmt> for VtxAttrFmt {
+    fn as_ref(&self) -> &ffi::GXVtxAttrFmt {
+        &self.0
+    }
+}
+
 /// Represents the GX service.
 pub struct Gx;
 
@@ -1463,7 +1479,7 @@ impl Gx {
     /// the calling thread is the one responsible for generating graphics data. This thread will be
     /// the thread to be suspended when the FIFO gets too full. The current GX thread can be
     /// changed by calling [`Gx::set_current_gx_thread()`].
-    pub fn init(mut size: usize) -> &'static mut Fifo {
+    pub fn init(mut size: usize) -> AtomicPtr<Fifo> {
         if size < Fifo::MIN_SIZE {
             size = Fifo::MIN_SIZE;
         }
@@ -1473,17 +1489,16 @@ impl Gx {
         let mut buf = ManuallyDrop::new(crate::utils::Buf32::new(size));
 
         // SAFETY: all safety is ensured by Buf32.
-        let fifo = unsafe {
-            let fifo = ffi::GX_Init(
+        let gxfifo = unsafe {
+            ffi::GX_Init(
                 buf.as_mut_ptr().map_addr(mem::to_uncached) as *mut _,
                 buf.len() as u32,
-            );
-            &mut *(fifo as *mut Fifo)
+            )
         };
 
         // Mark GX as initialized.
-        GX_INIT.store(true, Ordering::Release);
-        fifo
+        GX_IS_INIT.store(true, Ordering::Relaxed);
+        AtomicPtr::new(gxfifo as *mut Fifo)
     }
 
     /// Attaches *fifo* to the GP.
@@ -1522,7 +1537,7 @@ impl Gx {
     /// If GX was initialized, returns a copy of the information from the currently attached CPU
     /// FIFO. Otherwise, returns `None`.
     pub fn get_cpu_fifo() -> Option<Fifo> {
-        if ! GX_INIT.load(Ordering::Acquire) {
+        if ! GX_IS_INIT.load(Ordering::Acquire) {
             return None;
         }
 
