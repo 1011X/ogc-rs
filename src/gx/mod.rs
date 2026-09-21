@@ -1501,53 +1501,25 @@ impl Gx {
         AtomicPtr::new(gxfifo as *mut Fifo)
     }
 
-    /// Attaches *fifo* to the GP.
+    /// Gives a copy of the FIFO currently attached to the GP.
     ///
-    /// # Note
-    /// If the FIFO is also attached to the CPU, the system is in immediate-mode, and the fifo acts
-    /// like a true FIFO. In immediate-mode, graphics commands are fed directly from the CPU to the
-    /// GP, and the FIFO's high and low water marks are active. The high and low water marks
-    /// implement the flow-control mechanism between the CPU and GP. When the FIFO becomes more
-    /// full than the high water mark, the CPU will stop writing graphics commands into the FIFO.
-    /// When the FIFO empties to a point lower than the low water mark, the CPU will resume writing
-    /// graphics commands into the FIFO. The high and low water marks are set with
-    /// [`Fifo::set_limits()`].
-    ///
-    /// If the FIFO is only attached to the GP, the FIFO acts like a buffer. In this case, high and
-    /// low water marks are disabled, and the GP reads the FIFO until it is empty. Before attaching
-    /// a new FIFO to the GP, you should make sure the previous FIFO is empty, using the *cmdIdle*
-    /// status returned by [`Gx::get_gp_status()`].
-    ///
-    /// The break point mechanism can be used to force the FIFO to stop reading commands at a
-    /// certain point; see [`Gx::enable_breakpt()`].
-    pub fn set_gp_fifo(fifo: &mut Fifo) {
-        unsafe { ffi::GX_SetGPFifo(&mut fifo.0) }
+    /// See [GX_GetGPFifo](https://libogc.devkitpro.org/gx_8h.html#af98b3858d1d04a4bbe620b0a45d94c8c) for more.
+    pub fn get_gp_fifo() -> Option<Fifo> {
+        unimplemented!()
     }
 
     /// Attaches a FIFO to the CPU.
     ///
-    /// # Note
-    /// If the FIFO being attached is one already attached to the GP, the FIFO can be considered to
-    /// be in immediate mode. If not, the CPU can write commands, and the GP will execute them when
-    /// the GP attaches to this FIFO (multi-buffered mode).
-    pub fn set_cpu_fifo(fifo: &mut Fifo) {
-        unsafe { ffi::GX_SetCPUFifo(&mut fifo.0) }
+    /// See [GX_SetGPFifo](https://libogc.devkitpro.org/gx_8h.html#af98b3858d1d04a4bbe620b0a45d94c8c) for more.
+    pub fn set_gp_fifo(fifo: Fifo) {
+        unimplemented!()
     }
 
-    /// If GX was initialized, returns a copy of the information from the currently attached CPU
-    /// FIFO. Otherwise, returns `None`.
-    pub fn get_cpu_fifo() -> Option<Fifo> {
-        if ! GX_IS_INIT.load(Ordering::Acquire) {
-            return None;
-        }
-
-        let mut gxfifo = core::mem::MaybeUninit::uninit();
-        // SAFETY: according to the libogc source, it initializes all fields of gxfifo (as long as
-        // GX_Init() was called), so it can be assumed to be initialized after the call.
-        unsafe {
-            ffi::GX_GetCPUFifo(gxfifo.as_mut_ptr());
-            Some(Fifo(gxfifo.assume_init()))
-        }
+    /// Copies the given FIFO into the CPU FIFO.
+    ///
+    /// See [GX_SetCPUFifo](https://libogc.devkitpro.org/gx_8h.html#a69852ae8a9b982556a3a37a450af30d8) for more.
+    pub fn set_cpu_fifo(fifo: &Fifo) {
+        unimplemented!()
     }
 
     /// Returns the current GX thread.
@@ -2702,105 +2674,6 @@ impl Gx {
         unsafe { ffi::GX_CopyTex(dest.as_mut_ptr() as *mut _, clear as _) }
     }
 
-    /// Temporarily points the CPU's write-gather pipe at a new location.
-    ///
-    /// After calling this function, subsequent writes to the address returned
-    /// by this function (or the WGPipe union) will be gathered and sent to a
-    /// destination buffer. The write pointer is automatically incremented by
-    /// the GP. The write-gather pipe can be restored by calling
-    /// [`Gx::restore_write_gather_pipe()`]. This function cannot be called
-    /// between a [`Gx::begin()`]/[`Gx::end()`] pair.
-    ///
-    /// **Note:** The destination buffer, referred to by _ptr,_ must be 32-byte
-    /// aligned. The amount of data written should also be 32-byte aligned. If
-    /// it is not, zeroes will be added to pad the destination buffer to 32
-    /// bytes. No part of the destination buffer should be modified inside the
-    /// CPU caches - this may introduce cache incoherency problems.
-    ///
-    /// **Note:** The write-gather pipe is one of the fastest ways to move data
-    /// out of the CPU (the other being the locked cache DMA). In general, you
-    /// are compute-bound when sending data from the CPU.
-    ///
-    /// **Note:** This function is cheaper than trying to create a fake CPU fifo
-    /// around a destination buffer, which requires calls to
-    /// [`Gx::set_cpu_fifo()`], [`Gx::init_fifo_base()`], etc. This function
-    /// performs very lightweight state saves by assuming that the CPU and GP
-    /// FIFOs never change.
-    ///
-    /// **No GX commands can be called until the write-gather pipe is restored.
-    /// You MUST call [`Gx::restore_write_gather_pipe()`] before calling this
-    /// function again, or else the final call to restore the pipe will fail.**
-    ///
-    /// Arguments:
-    /// * `ptr`: to destination buffer, 32-byte aligned
-    ///
-    /// Returns: real address of the write-gather "port". All writes to this
-    /// address will be gathered by the CPU write gather pipe. You may also use
-    /// the WGPipe union. If you do not use the WGPipe union, ensure that your
-    /// local variable is volatile.
-    pub fn redirect_write_gather_pipe(ptr: &mut [u8]) -> *mut c_void {
-        unimplemented!()
-    }
-
-    /// Installs a callback that is invoked whenever a `DrawDone` command is
-    /// encountered by the GP.
-    ///
-    /// The `DrawDone` command is sent by [`Gx::set_draw_done()`].
-    ///
-    /// **Note:** By the time the callback is invoked, the GP will already have
-    /// resumed reading from the FIFO, if there are any commands in it.
-    ///
-    /// Arguments:
-    /// * `cb`: callback to be invoked when DrawDone is encountered
-    ///
-    /// Returns: pointer to the previous callback
-    pub fn set_draw_done_callback(cb: DrawDoneCallback) -> DrawDoneCallback {
-        unimplemented!()
-    }
-
-    /// Sets the callback function called by [`Gx::load_tex_obj()`] to obtain an
-    /// available texture region.
-    ///
-    /// [`Gx::init()`] calls this function to set a default region-assignment
-    /// policy. A programmer can override this default region assignment by
-    /// implementing their own callback function. A pointer to the texture
-    /// object and the texture map ID that are passed to [`Gx::load_tex_obj()`]
-    /// are provided to the callback function.
-    ///
-    /// Arguments:
-    /// * `cb`: ptr to a function that takes a pointer to a [`GXTexObj`] and a
-    ///   texmapid as a parameter and returns a pointer to a [`GXTexRegion`].
-    ///
-    /// Returns: pointer to the previously set callback.
-    pub fn set_tex_region_callback(cb: TexRegionCallback) -> TexRegionCallback {
-        unimplemented!()
-    }
-
-    /// Sets the callback function called by [`Gx::load_tlut()`] to find the
-    /// region into which to load the TLUT.
-    ///
-    /// [`Gx::load_tex_obj()`] will also call _cb_ to obtain the Texture Look-up
-    /// Table (TLUT) region when the texture format is color-index.
-    ///
-    /// [`Gx::init()`] calls [`Gx::set_tlut_region_callback()`] to set a default
-    /// TLUT index-to-region mapping. The name for the TLUT from the texture
-    /// object is provided as an argument to the callback. The callback should
-    /// return a pointer to the GXTlutRegion for this TLUT index.
-    ///
-    /// **Note:** For a given *tlut_name* (in the [`GXTlutRegionCallback`]
-    /// struct), _cb_ must always return the same [`GXTlutRegion`]; this is
-    /// because [`Gx::load_tlut()`] will initialize data into the
-    /// [`GXTlutRegion`] which [`Gx::load_tex_obj()`] will subsequently use.
-    ///
-    /// Arguments:
-    /// * `cb`: ptr to a function that takes a u32 TLUT name as a parameter and
-    ///   returns a pointer to a [`GXTlutRegion`].
-    ///
-    /// Returns: pointer to the previously set callback.
-    pub fn set_tlut_region_callback(cb: TlutRegionCallback) -> TlutRegionCallback {
-        unimplemented!()
-    }
-
     /// Sets the type of multiple attributes.
     ///
     /// See [GX_SetVtxDescv](https://libogc.devkitpro.org/gx_8h.html#a159810efe8391da35ea9b625c5fc70bd) for more.
@@ -2865,11 +2738,3 @@ pub enum GPDrawCommand {
     DrawLineStrip = 0xB0,
     DrawPoints = 0xBB,
 }
-
-#[repr(transparent)]
-pub struct TexRegion {
-    inner: ffi::GXTexRegion,
-}
-pub type DrawDoneCallback = ffi::GXDrawDoneCallback;
-pub type TexRegionCallback = ffi::GXTexRegionCallback;
-pub type TlutRegionCallback = ffi::GXTlutRegionCallback;
