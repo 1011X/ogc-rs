@@ -10,6 +10,7 @@ use core::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
 use alloc::vec::Vec;
 use bit_field::BitField;
 use ffi::GXTexObj;
+use ogc_sys::{GXRModeObj, GXTexReg, GXTexRegion, GXVtxDesc};
 use voladdress::{Safe, VolAddress};
 
 use num_traits::Float;
@@ -1331,12 +1332,27 @@ impl Texture {
 }
 
 #[repr(u32)]
+pub enum TexCacheSize {
+    /// 32 kilobytes
+    Small = ffi::GX_TEXCACHE_32K,
+    /// 128 kilobytes
+    Medium = ffi::GX_TEXCACHE_128K,
+    /// 512 kilobytes
+    Large = ffi::GX_TEXCACHE_512K,
+    None = ffi::GX_TEXCACHE_NONE,
+}
+
+#[repr(transparent)]
+pub struct TexRegion(ffi::GXTexRegion);
+
+#[repr(u32)]
 pub enum TlutFormat {
     IA8 = ffi::GX_TL_IA8,
     RGB565 = ffi::GX_TL_RGB565,
     RGB5A3 = ffi::GX_TL_RGB5A3,
 }
 
+/// Texture Look-Up Table
 #[repr(transparent)]
 pub struct Tlut(ffi::GXTlutObj);
 
@@ -1442,6 +1458,23 @@ pub struct VtxAttrFmt(ffi::GXVtxAttrFmt);
 impl AsRef<ffi::GXVtxAttrFmt> for VtxAttrFmt {
     fn as_ref(&self) -> &ffi::GXVtxAttrFmt {
         &self.0
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+#[repr(transparent)]
+pub struct RenderMode(GXRModeObj);
+
+impl RenderMode {
+    /// Takes a given render mode and returns a version that is reduced in size to account for overscan.
+    ///
+    /// See [GX_AdjustForOverscan](https://libogc.devkitpro.org/gx_8h.html#aa747893f4ff75886f7cacc4c40aa1206) for more.
+    pub fn adjust_for_overscan(mut self, hor: u16, ver: u16) -> Self {
+        let mut rmout = core::mem::MaybeUninit::uninit();
+        unsafe {
+            ffi::GX_AdjustForOverscan(&mut self.0, rmout.as_mut_ptr(), hor, ver);
+            RenderMode(rmout.assume_init())
+        }
     }
 }
 
