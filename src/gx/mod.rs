@@ -2626,54 +2626,21 @@ impl Gx {
 
     /// Loads a given texture from DRAM into the texture memory.
     ///
-    /// Accesses to this texture will bypass the texture cache tag look-up and
-    /// instead read the texels directly from texture memory. The texture
-    /// region must be the same size as the texture (see
-    /// [`Gx::init_tex_preload_region()`]).
-    ///
-    /// **Note**: This function loads the texture into texture memory, but to
-    /// use it as a source for the Texture Environment (TEV) unit, you must
-    /// first call [`Gx::load_tex_obj_preloaded()`]. The default configuration
-    /// (as set by [`Gx::init()`]) of texture memory has no preloaded regions,
-    /// so you must install your own region allocator callbacks using
-    /// [`Gx::set_tex_region_callback()`] and [`Gx::set_tlut_region_callback()`].
+    /// See [GX_PreloadEntireTexture](https://libogc.devkitpro.org/gx_8h.html#a7b6d8f9cffffaf8001d12548644d7ddd) for more.
     pub fn preload_entire_texture(obj: &Texture, region: &mut TexRegion) {
         unimplemented!()
     }
 
-    /// Copies a Texture Look-Up Table (TLUT) from main memory to Texture
-    /// Memory (TMEM).
+    /// Copies a Texture Look-Up Table (TLUT) from main memory to Texture Memory (TMEM).
     ///
-    /// The *tlut_name* parameter is the name of a pre-allocated area of TMEM.
-    /// The callback function set by [`Gx::set_tlut_region_callback()`] converts
-    /// the *tlut_name* into a [`TlutRegion`] pointer. The TLUT is loaded in the
-    /// TMEM region described by this pointer. The TLUT object *obj* describes
-    /// the location of the TLUT in main memory, the TLUT format, and the TLUT
-    /// size. *obj* should have been previously initialized using
-    /// [`Gx::init_tlut_obj()`].
-    ///
-    /// **Note**: [`Gx::init()`] sets a default callback to convert *tlut_names*
-    /// from TLUT name to [`TlutRegion`] pointers. The default configuration of
-    /// TMEM has 20 TLUTs, 16 each 256 entries by 16 bits, and 4 each 1k entries
-    /// by 16 bits. This configuration can be overriden by calling
-    /// [`Gx::init_tlut_region()`] and [`Gx::init_tex_cache_region()`] to
-    /// allocate TMEM. Then you can define your own region allocation scheme
-    /// using [`Gx::set_tlut_region_callback()`] and
-    /// [`Gx::set_tex_region_callback()`].
+    /// See [GX_LoadTlut](https://libogc.devkitpro.org/gx_8h.html#a9ebea5754b6e13996303cd4f829ebb1b) for more.
     pub fn load_tlut(obj: &Tlut, tlut_name: u32) {
         unimplemented!();
     }
 
     /// This function sends a token into the command stream.
     ///
-    /// When the token register is set, an interrupt will also be received by
-    /// the CPU. You can install a callback on this interrupt with
-    /// [`Gx::set_draw_sync_callback()`]. Draw syncs can be used to notify the
-    /// CPU that the graphics processor is finished using a shared resource (a
-    /// vertex array for instance).
-    ///
-    /// Arguments:
-    /// * `token`: 16-bit value to write to the token register.
+    /// See [GX_SetDrawSync](https://libogc.devkitpro.org/gx_8h.html#a537fee417b3018a0c8920770652ec813) for more.
     pub fn set_draw_sync(token: u16) {
         unimplemented!()
     }
@@ -2688,91 +2655,30 @@ impl Gx {
 
     /// Sets two performance metrics to measure in the GP.
     ///
-    /// `perf0` and `perf1` are set to measure. The initial metrics measured are
-    /// `Perf0::None` and `Perf1::None`, which return counts of zero for the
-    /// first call to [`Gx::read_gp_metric()`].
-    ///
-    /// Each performance counter has a unique set of events or ratios that it
-    /// can count. In some cases the same metric can be counted using both
-    /// counters, for example `Perf0::Vertices` and `Perf1::Vertices`. Ratios
-    /// (the metric name ends in `Ratio`) are multiplied by 1000 (1000 = all
-    /// misses/clips, etc., 0 = no misses/clips, etc.).
-    ///
-    /// **Note:** [`Gx::read_gp_metric()`] and [`Gx::clear_gp_metric()`] can be
-    /// used in the callback associated with the draw sync interrupt (see
-    /// [`Gx::set_draw_sync_callback()`]. This function should not be used in
-    /// the draw sync callback because it will insert tokens in the GP command
-    /// stream at random times.
-    ///
-    /// This function reads results from CPU-accessible registers in the GP,
-    /// therefore, this command *must not* be used in a display list. In
-    /// addition, the performance counters in some cases are triggered by
-    /// sending tokens through the graphics FIFO to the GP. This implies that
-    /// the function should only be used in immediate mode (when the graphics
-    /// FIFO is connected to the CPU and the GP at the same time). It may also
-    /// be necessary to send a draw sync token using [`Gx::set_draw_sync()`] or
-    /// call [`Gx::set_draw_done()`] after [`Gx::read_gp_metric()`] to ensure
-    /// that the state has actually been processed by the GP.
-    ///
-    /// Arguments:
-    /// * `perf0`: perf0-metrics to measure
-    /// * `perf1`: perf1-metrics to measure
+    /// See [GX_SetGPMetric](https://libogc.devkitpro.org/gx_8h.html#a0552fd47b766524a88db059c4d1023cc) for more.
     pub fn set_gp_metric(perf0: Perf0, perf1: Perf1) {
         unimplemented!()
     }
 
     /// Returns the count of the previously set performance metrics.
     ///
-    /// **Note:** The performance metrics can be set using
-    /// [`Gx::set_gp_metric()`]; the counters can be cleared using
-    /// [`Gx::clear_gp_metric()`].
-    ///
-    /// **Note:** [`Gx::read_gp_metric()`] and [`Gx::clear_gp_metric()`] can be
-    /// used in the callback associated with the draw sync interrupt (see
-    /// [`Gx::set_draw_sync_callback()`]. The function [`Gx::set_gp_metric()`]
-    /// should **not** be used in the draw sync callback because it will insert
-    /// tokens in the GP command stream at random times.
-    ///
-    /// This function reads results from CPU-accessible registers in the GP,
-    /// therefore, this command *must not* be used in a display list. It may
-    /// also be necessary to send a draw sync token using [`Gx::set_draw_sync()`]
-    /// or [`Gx::set_draw_done()`] before [`Gx::read_gp_metric()`] is called to
-    /// ensure that the state has actually been processed by the GP.
-    ///
-    /// Arguments:
-    /// * `cnt0`: current value of GP counter 0
-    /// * `cnt1`: current value of GP counter 1
-    pub fn read_gp_metric(cnt0: &mut u32, cnt1: &mut u32) {
-        unimplemented!()
+    /// See [GX_ReadGPMetric](https://libogc.devkitpro.org/gx_8h.html#af62420d12b7f50c810e3c5fb560e1176) for more.
+    pub fn read_gp_metric() -> (u32, u32) {
+        let mut counts = (0, 0);
+        unsafe { ffi::GX_ReadGPMetric(&mut counts.0, &mut counts.1) }
+        counts
     }
 
     /// Sets the metric the Vertex Cache performance counter will measure.
     ///
-    /// It is possible to monitor a particular attribute or all attributes
-    /// using _attr_.
-    ///
-    /// **Note:** To clear the counter, call [`Gx::clear_vcache_metric()`]; to
-    /// read the counter value, call [`Gx::read_vcache_metric()`].
-    ///
-    /// Arguments:
-    /// * `attr`: vcache-metrics to measure
+    /// See [GX_SetVCacheMetric](https://libogc.devkitpro.org/gx_8h.html#ab5b888434069c7f72caebbd6f98c55a9) for more.
     pub fn set_vcache_metric(attr: VCacheAttr) {
         unsafe { ffi::GX_SetVCacheMetric(attr as _) }
     }
 
     /// Returns Vertex Cache performance counters.
     ///
-    /// Each call to this function resets the counter to zero.
-    /// [`Gx::set_vcache_metric()`] sets the metric to be measured by the Vertex
-    /// Cache performance counter.
-    ///
-    /// **Warning**: This function reads CPU-accessible registers in the GP and
-    /// so should not be called in a display list.
-    ///
-    /// Returns:
-    /// * `check`: total number of accesses to the vertex cache
-    /// * `miss`: total number of cache misses to the vertex cache
-    /// * `stall`: number of GP clocks that the vertex cache was stalled
+    /// See [GX_ReadVCacheMetric](https://libogc.devkitpro.org/gx_8h.html#a19679bb36c6c27403a30f77de3cbdbc4) for more.
     pub fn read_vcache_metric() -> (u32, u32, u32) {
         let mut check: u32 = 0;
         let mut miss: u32 = 0;
@@ -2897,15 +2803,7 @@ impl Gx {
 
     /// Sets the type of multiple attributes.
     ///
-    /// This function is used when more than one attribute needs to be set
-    /// (e.g., during initialization of geometry).
-    ///
-    /// **Note:** The constant `GX_MAX_VTXATTRFMT_LISTSIZE` can be used to
-    /// allocate memory for _attr_list_.
-    ///
-    /// Arguments:
-    /// * `attr_list`: array of pointers to [`GXVtxDesc`] structs; last element
-    /// of the array should be `GX_VA_NULL`.
+    /// See [GX_SetVtxDescv](https://libogc.devkitpro.org/gx_8h.html#a159810efe8391da35ea9b625c5fc70bd) for more.
     pub fn set_vtx_descv(attr_list: &[VtxDesc]) {
         unimplemented!()
     }
