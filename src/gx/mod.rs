@@ -1369,23 +1369,14 @@ impl Tlut {
 #[derive(Copy, Clone, Debug)]
 #[repr(u32)]
 pub enum VtxAttr {
-    #[doc(hidden)]
     PtnMtxIdx = ffi::GX_VA_PTNMTXIDX,
-    #[doc(hidden)]
     Tex0MtxIdx = ffi::GX_VA_TEX0MTXIDX,
-    #[doc(hidden)]
     Tex1MtxIdx = ffi::GX_VA_TEX1MTXIDX,
-    #[doc(hidden)]
     Tex2MtxIdx = ffi::GX_VA_TEX2MTXIDX,
-    #[doc(hidden)]
     Tex3MtxIdx = ffi::GX_VA_TEX3MTXIDX,
-    #[doc(hidden)]
     Tex4MtxIdx = ffi::GX_VA_TEX4MTXIDX,
-    #[doc(hidden)]
     Tex5MtxIdx = ffi::GX_VA_TEX5MTXIDX,
-    #[doc(hidden)]
     Tex6MtxIdx = ffi::GX_VA_TEX6MTXIDX,
-    #[doc(hidden)]
     Tex7MtxIdx = ffi::GX_VA_TEX7MTXIDX,
     Pos = ffi::GX_VA_POS,
     Nrm = ffi::GX_VA_NRM,
