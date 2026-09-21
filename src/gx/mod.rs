@@ -465,14 +465,9 @@ impl Fifo {
     /// Constructs a new `Fifo` with the given size.
     ///
     /// If the given size is less than the minimum, the minimum size is used.
-    pub fn with_size(mut size: usize) -> Self {
+    pub fn with_size(size: usize) -> Self {
         let mut fifo = core::mem::MaybeUninit::zeroed();
-
-        if size < Fifo::MIN_SIZE {
-            size = Fifo::MIN_SIZE;
-        }
-
-        let mut buf = Buf32::new(size);
+        let mut buf = Buf32::new(size.max(Fifo::MIN_SIZE));
 
         // SAFETY:
         // + original libogc source suggests that available init functions don't
@@ -2323,24 +2318,13 @@ impl Gx {
 
     #[inline]
     pub fn position_3f32(x: f32, y: f32, z: f32) {
-        let x_bytes = x.to_be_bytes();
-        let y_bytes = y.to_be_bytes();
-        let z_bytes = z.to_be_bytes();
-        for byte in x_bytes {
+        let bytes = x.to_be_bytes()
+            .into_iter()
+            .chain(y.to_be_bytes())
+            .chain(z.to_be_bytes());
+        for byte in bytes {
             GX_PIPE.write(byte);
         }
-        for byte in y_bytes {
-            GX_PIPE.write(byte);
-        }
-
-        for byte in z_bytes {
-            GX_PIPE.write(byte);
-        }
-        /*
-        unsafe {
-            ffi::GX_Position3f32(x, y, z);
-        }
-        */
     }
 
     #[inline]
@@ -2483,63 +2467,36 @@ impl Gx {
 
     #[inline]
     pub fn position1x8(index: u8) {
-        let idx_bytes = index.to_be_bytes();
-        for byte in idx_bytes {
-            GX_PIPE.write(byte);
-        }
+        GX_PIPE.write(index);
     }
 
     #[inline]
     pub fn position1x16(index: u16) {
-        let idx_bytes = index.to_be_bytes();
-        for byte in idx_bytes {
+        for byte in index.to_be_bytes() {
             GX_PIPE.write(byte);
         }
     }
 
     #[inline]
     pub fn color_4u8(r: u8, g: u8, b: u8, a: u8) {
-        let r_bytes = r.to_be_bytes();
-        let g_bytes = g.to_be_bytes();
-        let b_bytes = b.to_be_bytes();
-        let a_bytes = a.to_be_bytes();
-
-        for byte in r_bytes {
-            GX_PIPE.write(byte);
-        }
-        for byte in g_bytes {
-            GX_PIPE.write(byte);
-        }
-        for byte in b_bytes {
-            GX_PIPE.write(byte);
-        }
-        for byte in a_bytes {
-            GX_PIPE.write(byte);
-        }
+        GX_PIPE.write(r);
+        GX_PIPE.write(g);
+        GX_PIPE.write(b);
+        GX_PIPE.write(a);
     }
 
     #[inline]
     pub fn color_3u8(r: u8, g: u8, b: u8) {
-        let r_bytes = r.to_be_bytes();
-        let g_bytes = g.to_be_bytes();
-        let b_bytes = b.to_be_bytes();
-
-        for byte in r_bytes {
-            GX_PIPE.write(byte);
-        }
-        for byte in g_bytes {
-            GX_PIPE.write(byte);
-        }
-        for byte in b_bytes {
-            GX_PIPE.write(byte);
-        }
+        GX_PIPE.write(r);
+        GX_PIPE.write(g);
+        GX_PIPE.write(b);
     }
 
     #[inline]
     pub fn color_3f32(r: f32, g: f32, b: f32) {
-        assert!((0.0..=1.0).contains(&r));
-        assert!((0.0..=1.0).contains(&g));
-        assert!((0.0..=1.0).contains(&b));
+        debug_assert!((0.0..=1.0).contains(&r));
+        debug_assert!((0.0..=1.0).contains(&g));
+        debug_assert!((0.0..=1.0).contains(&b));
 
         let r: u8 = (r * 255.0).round() as u8;
         let g: u8 = (g * 255.0).round() as u8;
@@ -2552,7 +2509,7 @@ impl Gx {
 
     #[inline]
     pub fn color_4f32(r: f32, g: f32, b: f32, a: f32) {
-        assert!((0.0..=1.0).contains(&a));
+        debug_assert!((0.0..=1.0).contains(&a));
 
         let a = (a * 255.0).round() as u8;
 
@@ -2562,8 +2519,7 @@ impl Gx {
 
     #[inline]
     pub fn color_1u32(clr: u32) {
-        let clr_bytes = clr.to_be_bytes();
-        for byte in clr_bytes {
+        for byte in clr.to_be_bytes() {
             GX_PIPE.write(byte);
         }
     }
@@ -2624,14 +2580,14 @@ impl Gx {
     ///
     /// See [GX_PreloadEntireTexture](https://libogc.devkitpro.org/gx_8h.html#a7b6d8f9cffffaf8001d12548644d7ddd) for more.
     pub fn preload_entire_texture(obj: &Texture, region: &mut TexRegion) {
-        unimplemented!()
+        unsafe { ffi::GX_PreloadEntireTexture(obj as *const _ as *mut _, &mut region.0) }
     }
 
     /// Copies a Texture Look-Up Table (TLUT) from main memory to Texture Memory (TMEM).
     ///
     /// See [GX_LoadTlut](https://libogc.devkitpro.org/gx_8h.html#a9ebea5754b6e13996303cd4f829ebb1b) for more.
     pub fn load_tlut(obj: &Tlut, tlut_name: u32) {
-        unimplemented!();
+        unsafe { ffi::GX_LoadTlut(obj as *const _ as *mut _, tlut_name) }
     }
 
     /// This function sends a token into the command stream.
@@ -2653,7 +2609,7 @@ impl Gx {
     ///
     /// See [GX_SetGPMetric](https://libogc.devkitpro.org/gx_8h.html#a0552fd47b766524a88db059c4d1023cc) for more.
     pub fn set_gp_metric(perf0: Perf0, perf1: Perf1) {
-        unimplemented!()
+        unsafe { ffi::GX_SetGPMetric(perf0 as _, perf1 as _) }
     }
 
     /// Returns the count of the previously set performance metrics.
@@ -2676,9 +2632,7 @@ impl Gx {
     ///
     /// See [GX_ReadVCacheMetric](https://libogc.devkitpro.org/gx_8h.html#a19679bb36c6c27403a30f77de3cbdbc4) for more.
     pub fn read_vcache_metric() -> (u32, u32, u32) {
-        let mut check: u32 = 0;
-        let mut miss: u32 = 0;
-        let mut stall: u32 = 0;
+        let (mut check, mut miss, mut stall) = (0, 0, 0);
         unsafe { ffi::GX_ReadVCacheMetric(&mut check, &mut miss, &mut stall); }
         (check, miss, stall)
     }
