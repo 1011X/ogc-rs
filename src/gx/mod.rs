@@ -1158,19 +1158,13 @@ impl Texture {
         unsafe { ffi::GX_GetTexObjFmt(&self.inner).into() }
     }
 
-    /// Returns the horizontal texture wrap mode for the given texture.
-    pub fn get_wrap_s(&self) -> WrapMode {
-        unsafe { ffi::GX_GetTexObjWrapS(&self.inner).into() }
-    }
-
-    /// Returns the vertical texture wrap mode for the given texture.
-    pub fn get_wrap_t(&self) -> WrapMode {
-        unsafe { ffi::GX_GetTexObjWrapT(&self.inner).into() }
-    }
-
-    /// Returns the texture wrap modes for the given texture.
+    /// Returns the wrap modes (horizontal and vertical) for this texture.
     pub fn get_wrap(&self) -> (WrapMode, WrapMode) {
-        (self.get_wrap_s(), self.get_wrap_t())
+        unsafe {
+            let wrap_s = ffi::GX_GetTexObjWrapS(&self.inner).into();
+            let wrap_t = ffi::GX_GetTexObjWrapT(&self.inner).into();
+            (wrap_s, wrap_t)
+        }
     }
 
 	/// Returns the minimum and maximum filter modes for the given texture.
