@@ -1007,6 +1007,17 @@ impl From<u32> for TextureFormat {
     }
 }
 
+/// Texture offset value
+#[repr(u32)]
+pub enum TexOffset {
+    ToZero = ffi::GX_TO_ZERO,
+    ToSixteenth = ffi::GX_TO_SIXTEENTH,
+    ToEighth = ffi::GX_TO_EIGHTH,
+    ToFourth = ffi::GX_TO_FOURTH,
+    ToHalf = ffi::GX_TO_HALF,
+    ToOne = ffi::GX_TO_ONE,
+}
+
 /// Object containing information about a texture.
 #[derive(Debug)]
 pub struct Texture {
@@ -2658,6 +2669,20 @@ impl Gx {
     pub fn set_vtx_descv(attr_list: &[VtxDesc]) {
         unimplemented!()
     }
+}
+
+/// Sets the width of line primitives.
+///
+/// See [GX_SetLineWidth](https://libogc.devkitpro.org/gx_8h.html#a18e5556c0f12c84a00b631f24edb6f99) for more.
+pub fn set_line_width(width: u8, fmt: TexOffset) {
+    unsafe { ffi::GX_SetLineWidth(width, fmt as _); }
+}
+
+/// Sets the size of point primitives.
+///
+/// See [GX_SetPointSize](https://libogc.devkitpro.org/gx_8h.html#a3a1632e5897acafc1255b2d93236ddcb) for more.
+pub fn set_point_size(width: u8, fmt: TexOffset) {
+    unsafe { ffi::GX_SetPointSize(width, fmt as _); }
 }
 
 //All the following data is found from
