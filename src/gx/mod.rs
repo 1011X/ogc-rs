@@ -50,6 +50,7 @@ pub const S16: u32 = ffi::GX_S16;
 pub const F32: u32 = ffi::GX_F32;
 
 static GX_IS_INIT: AtomicBool = AtomicBool::new(false);
+static IN_DISPLAY_LIST: AtomicBool = AtomicBool::new(false);
 
 mod regs;
 pub mod types;
@@ -1588,14 +1589,13 @@ impl Gx {
 
     /// Clears the two virtual GP performance counters to zero.
     ///
-    /// # Note
-    /// The counter's function is set using [`Gx::set_gp_metric()`]; the counter's value is read
-    /// using [`Gx::read_gp_metric()`]. Consult these for more details.
+    /// When in display list mode, this is a no-op.
     ///
-    /// # Safety
-    /// This function resets CPU accessible counters, so it should **not** be used in a display list.
-    pub unsafe fn clear_gp_metric() {
-        unsafe { ffi::GX_ClearGPMetric() }
+    /// See [GX_ClearGPMetric](https://libogc.devkitpro.org/gx_8h.html#ad339961d27f13b76640ee67e553488ac) for more.
+    pub fn clear_gp_metric() {
+        if ! IN_DISPLAY_LIST.load(Ordering::Acquire) {
+            unsafe { ffi::GX_ClearGPMetric() }
+        }
     }
 
     /// Clears the Vertex Cache performance counter.
@@ -1723,17 +1723,13 @@ impl Gx {
 
     /// Causes the GPU to wait for the pipe to flush.
     ///
-    /// This function inserts a synchronization command into the graphics FIFO. When the GPU sees
-    /// this command it will allow the rest of the pipe to flush before continuing. This command is
-    /// useful in certain situation such as after using [`Gx::copy_tex()`] and before a primitive
-    /// that uses the copied texture.
+    /// When in a display list, this is a no-op.
     ///
-    /// # Note
-    /// The command is actually implemented by writing the control register that determines the
-    /// format of the embedded frame buffer (EFB). As a result, care should be used if this command
-    /// is placed within a display list.
+    /// See [GX_PixModeSync](https://libogc.devkitpro.org/gx_8h.html#af8a7469351ae569dd22c496f93b0fc8f) for more.
     pub fn pix_mode_sync() {
-        unsafe { ffi::GX_PixModeSync() }
+        if ! IN_DISPLAY_LIST.load(Ordering::Acquire) {
+            unsafe { ffi::GX_PixModeSync() }
+        }
     }
 
     /// Restores the write-gather pipe.
@@ -2612,18 +2608,28 @@ impl Gx {
 
     /// Sets two performance metrics to measure in the GP.
     ///
+    /// When in display list mode, this is a no-op.
+    ///
     /// See [GX_SetGPMetric](https://libogc.devkitpro.org/gx_8h.html#a0552fd47b766524a88db059c4d1023cc) for more.
     pub fn set_gp_metric(perf0: Perf0, perf1: Perf1) {
-        unsafe { ffi::GX_SetGPMetric(perf0 as _, perf1 as _) }
+        if ! IN_DISPLAY_LIST.load(Ordering::Acquire) {
+            unsafe { ffi::GX_SetGPMetric(perf0 as _, perf1 as _) }
+        }
     }
 
     /// Returns the count of the previously set performance metrics.
     ///
+    /// When in display list mode, this returns `None`.
+    ///
     /// See [GX_ReadGPMetric](https://libogc.devkitpro.org/gx_8h.html#af62420d12b7f50c810e3c5fb560e1176) for more.
-    pub fn read_gp_metric() -> (u32, u32) {
-        let mut counts = (0, 0);
-        unsafe { ffi::GX_ReadGPMetric(&mut counts.0, &mut counts.1) }
-        counts
+    pub fn read_gp_metric() -> Option<(u32, u32)> {
+        if ! IN_DISPLAY_LIST.load(Ordering::Acquire) {
+            let mut counts = (0, 0);
+            unsafe { ffi::GX_ReadGPMetric(&mut counts.0, &mut counts.1) }
+            Some(counts)
+        } else {
+            None
+        }
     }
 
     /// Sets the metric the Vertex Cache performance counter will measure.
@@ -2633,13 +2639,19 @@ impl Gx {
         unsafe { ffi::GX_SetVCacheMetric(attr as _) }
     }
 
-    /// Returns Vertex Cache performance counters.
+    /// Returns vertex cache performance counters.
+    ///
+    /// When in display list mode, this returns `None`.
     ///
     /// See [GX_ReadVCacheMetric](https://libogc.devkitpro.org/gx_8h.html#a19679bb36c6c27403a30f77de3cbdbc4) for more.
-    pub fn read_vcache_metric() -> (u32, u32, u32) {
-        let (mut check, mut miss, mut stall) = (0, 0, 0);
-        unsafe { ffi::GX_ReadVCacheMetric(&mut check, &mut miss, &mut stall); }
-        (check, miss, stall)
+    pub fn read_vcache_metric() -> Option<(u32, u32, u32)> {
+        if ! IN_DISPLAY_LIST.load(Ordering::Acquire) {
+            let (mut check, mut miss, mut stall) = (0, 0, 0);
+            unsafe { ffi::GX_ReadVCacheMetric(&mut check, &mut miss, &mut stall); }
+            Some((check, miss, stall))
+        } else {
+            None
+        }
     }
 
     /// Copies the embedded framebuffer (EFB) to the texture image buffer _dest_
@@ -2679,9 +2691,45 @@ pub fn set_point_size(width: u8, fmt: TexOffset) {
     unsafe { ffi::GX_SetPointSize(width, fmt as _); }
 }
 
+/// Begins a display list and disables writes to the FIFO currently attached to the CPU.
+///
+/// When already in a display list, this is a no-op.
+///
+/// See [GX_BeginDispList](https://libogc.devkitpro.org/gx_8h.html#a0b7122421171545256ccb2992dccc546) for more.
+pub fn begin_display_list(list: &mut [u8]) {
+    if ! IN_DISPLAY_LIST.swap(true, Ordering::AcqRel) {
+        unsafe { ffi::GX_BeginDispList(list.as_mut_ptr() as *mut _, list.len() as u32) }
+    }
+}
+
+/// Ends a display list and resumes writing graphics commands to the CPU FIFO.
+///
+/// When not in a display list, this returns `None`.
+///
+/// See [GX_BeginDispList](https://libogc.devkitpro.org/gx_8h.html#a0b7122421171545256ccb2992dccc546) for more.
+pub fn end_display_list() -> Option<u32> {
+    if IN_DISPLAY_LIST.swap(false, Ordering::AcqRel) {
+        Some(unsafe { ffi::GX_EndDispList() })
+    } else {
+        None
+    }
+}
+
+/// Causes the GP to execute graphics commands from the display list instead of from the GP FIFO.
+///
+/// When already in a display list, this is a no-op.
+///
+/// See [GX_BeginDispList](https://libogc.devkitpro.org/gx_8h.html#a0b7122421171545256ccb2992dccc546) for more.
+pub fn call_display_list(list: &[u8]) {
+    if ! IN_DISPLAY_LIST.load(Ordering::Acquire) {
+        unsafe { ffi::GX_CallDispList(list.as_ptr() as *const _ as *mut _, list.len() as u32) }
+    }
+}
+
 //All the following data is found from
 // http://hitmen.c02.at/files/yagcd/yagcd/chap5.html#sec5.3
 
+/*
 /// `display_list` slice should be 32-byte aligned and padded to the next
 /// 32-byte boundary. May want to use [`Buf32`] for this.
 fn call_display_list(display_list: &[u8]) {
@@ -2697,6 +2745,7 @@ fn call_display_list(display_list: &[u8]) {
         GX_PIPE.write(byte);
     }
 }
+*/
 
 //Currently doesnt check dirty state
 fn draw_begin(command: GPDrawCommand, vertex_format: u8, vertex_count: u16) {
