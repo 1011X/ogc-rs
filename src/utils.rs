@@ -106,22 +106,19 @@ pub fn alloc_aligned_buffer(buffer: &[u8]) -> Vec<u8> {
 pub struct Buf32(NonNull<[u8]>);
 
 impl Buf32 {
+    const ALIGN: usize = 32;
+
     /// Allocates a new buffer at least `min_len` bytes long. Rounds up the size
     /// to the next multiple of 32.
     ///
     /// # Panics
-    /// Panics if rounding up `min_len` to the next multiple of 32 would
-    /// overflow.
+    /// Panics if rounding up `min_len` to the next multiple of 32 would overflow
+    /// `isize::MAX`, or surpass the allocator's maximum size.
     pub fn new(min_len: usize) -> Self {
-        // round len to lowest multiple of 32
-        let padding = (32 - min_len % 32) % 32;
-        min_len.checked_add(padding).expect("length overflow");
+        // round to next lowest multiple of 32
+        let len = min_len.next_multiple_of(Self::ALIGN);
 
-        // SAFETY:
-        // * align is non-zero and a power of two.
-        // * `min_len` is checked above to not overflow `usize::MAX` after rounding up
-        //   for alignment.
-        let layout = unsafe { Layout::from_size_align_unchecked(min_len, 32) };
+        let layout = Layout::from_size_align(len, Self::ALIGN).unwrap();
 
         let block = match alloc::alloc::Global.allocate_zeroed(layout) {
             Ok(block) => block,
