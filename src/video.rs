@@ -173,6 +173,11 @@ impl RenderConfig {
     }
 }
 
+impl Default for RenderConfig {
+    fn default() -> Self {
+        get_preferred_mode()
+    }
+}
 
 
 /// Initializes the VIDEO subsystem. This must be called before using any other functions
