@@ -37,6 +37,38 @@ pub const MAX_WIDTH_MPAL: u16 = ffi::VI_MAX_WIDTH_MPAL as u16;
 pub const MAX_WIDTH_NTSC: u16 = ffi::VI_MAX_WIDTH_NTSC as u16;
 pub const MAX_WIDTH_PAL: u16 = ffi::VI_MAX_WIDTH_PAL as u16;
 
+/// Some colors in YUYV format.
+/// 
+/// These can be used in [`clear_framebuffer()`] by casting to a `u32`, such as
+/// `Color::Black as u32`. To use a custom color, refer to the 4:2:2 YCbCr equation for
+/// converting an RGB color to this color format.
+/// 
+/// This should not be confused with [`gx::Color`](crate::gx::Color).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum Color {
+    Black = ffi::COLOR_BLACK,
+    Maroon = ffi::COLOR_MAROON,
+    Green = ffi::COLOR_GREEN,
+    Olive = ffi::COLOR_OLIVE,
+    Navy = ffi::COLOR_NAVY,
+    Purple = ffi::COLOR_PURPLE,
+    Teal = ffi::COLOR_TEAL,
+    Gray = ffi::COLOR_GRAY,
+    Silver = ffi::COLOR_SILVER,
+    Red = ffi::COLOR_RED,
+    Lime = ffi::COLOR_LIME,
+    Yellow = ffi::COLOR_YELLOW,
+    Blue = ffi::COLOR_BLUE,
+    Fuchsia = ffi::COLOR_FUCHSIA,
+    Aqua = ffi::COLOR_AQUA,
+    MoneyGreen = ffi::COLOR_MONEYGREEN,
+    SkyBlue = ffi::COLOR_SKYBLUE,
+    Cream = ffi::COLOR_CREAM,
+    MedGray = ffi::COLOR_MEDGRAY,
+    White = ffi::COLOR_WHITE,
+}
+
 /// Denotes video format standards for different regions.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, TryFromPrimitive)]
 #[repr(u32)]
