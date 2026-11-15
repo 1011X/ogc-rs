@@ -40,13 +40,11 @@ pub const MAX_WIDTH_PAL: u16 = ffi::VI_MAX_WIDTH_PAL as u16;
 /// Some colors in YUYV format.
 /// 
 /// These can be used in [`clear_framebuffer()`] by casting to a `u32`, such as
-/// `Color::Black as u32`. To use a custom color, refer to the 4:2:2 YCbCr equation for
+/// `YuyvColor::Black as u32`. To use a custom color, refer to the 4:2:2 YCbCr equation for
 /// converting an RGB color to this color format.
-/// 
-/// This should not be confused with [`gx::Color`](crate::gx::Color).
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u32)]
-pub enum Color {
+pub enum YuyvColor {
     Black = ffi::COLOR_BLACK,
     Maroon = ffi::COLOR_MAROON,
     Green = ffi::COLOR_GREEN,
