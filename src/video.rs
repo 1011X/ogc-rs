@@ -131,10 +131,14 @@ pub struct RenderConfig {
     pub efb_height: u16,
     /// Height of the external framebuffer
     pub xfb_height: u16,
-    /// Starting point of the first pixel on the screen
-    pub vi_origin: (u16, u16),
-    /// Width and height of the image on the screen
-    pub vi_size: (u16, u16),
+    /// X-coordinate of the first pixel on the screen
+    pub vi_origin_x: u16,
+    /// Y-coordinate of the first pixel on the screen
+    pub vi_origin_y: u16,
+    /// Width of the image on the screen in pixels
+    pub vi_width: u16,
+    /// Height of the image on the screen in pixels
+    pub vi_height: u16,
     pub xfb_mode: FieldMode,
     /// Whether field rendering is enabled
     pub field_rendering: bool,
@@ -153,10 +157,10 @@ impl From<RenderConfig> for ffi::GXRModeObj {
             fbWidth: cfg.fb_width,
             efbHeight: cfg.efb_height,
             xfbHeight: cfg.xfb_height,
-            viXOrigin: cfg.vi_origin.0,
-            viYOrigin: cfg.vi_origin.1,
-            viWidth: cfg.vi_size.0,
-            viHeight: cfg.vi_size.1,
+            viXOrigin: cfg.vi_origin_x,
+            viYOrigin: cfg.vi_origin_y,
+            viWidth: cfg.vi_width,
+            viHeight: cfg.vi_height,
             xfbMode: cfg.xfb_mode as u32,
             field_rendering: cfg.field_rendering as u8,
             aa: cfg.sample_pattern.is_some() as u8,
@@ -180,8 +184,10 @@ impl From<ffi::GXRModeObj> for RenderConfig {
             fb_width: obj.fbWidth,
             efb_height: obj.efbHeight,
             xfb_height: obj.xfbHeight,
-            vi_origin: (obj.viXOrigin, obj.viYOrigin),
-            vi_size: (obj.viWidth, obj.viHeight),
+            vi_origin_x: obj.viXOrigin,
+            vi_origin_y: obj.viYOrigin,
+            vi_width: obj.viWidth,
+            vi_height: obj.viHeight,
             xfb_mode: FieldMode::try_from(obj.xfbMode).unwrap(),
             field_rendering: obj.field_rendering != 0,
             sample_pattern: (obj.aa != 0).then_some(obj.sample_pattern),
@@ -218,9 +224,7 @@ pub fn init() {
     unsafe { ffi::VIDEO_Init() }
 }
 
-/// Clears the framebuffer with the given render mode.
-/// 
-/// Color must be in YUYV format.
+/// Clears the framebuffer with the given render mode and YUYV color.
 pub fn clear_framebuffer(rconf: &RenderConfig, fb: &mut Buf32, colour: u32) {
     let mut gxrmode: ffi::GXRModeObj = rconf.into();
     unsafe {
