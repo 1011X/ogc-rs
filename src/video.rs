@@ -4,11 +4,11 @@
 //! It is agnostic of buffering strategy, so any strategy such as double- or
 //! triple-buffering can be used.
 //! 
-//! The primary features of the video subsystem are:
-//! * support for NTSC, PAL, and EURGB60 video formats,
-//! * support for interlaced, non-interlaced, and progressive scan modes,
-//! * positioning and horizontal scaling of the image onto the TV screen,
-//! * an average of 2 bytes per pixel in the XFB via the 4:2:2 YCbCr YUV format.
+//! Important characteristics about the video module:
+//! * Supports NTSC, PAL, and EURGB60 video formats
+//! * Supports interlaced, non-interlaced, and progressive scan modes
+//! * Can position and horizontally scale the final output image onto the TV screen
+//! * Uses the 4:2:2 YCbCr YUV format, which averages 2 bytes per pixel.
 //! 
 //! Unless stated otherwise, "framebuffer" here refers to the *external* framebuffer, as
 //! that is what the video module operates on. The embedded framebuffer is managed by GX
@@ -40,8 +40,8 @@ pub const MAX_WIDTH_PAL: u16 = ffi::VI_MAX_WIDTH_PAL as u16;
 /// Some colors in YUYV format.
 /// 
 /// These can be used in [`clear_framebuffer()`] by casting to a `u32`, such as
-/// `YuyvColor::Black as u32`. To use a custom color, refer to the 4:2:2 YCbCr equation for
-/// converting an RGB color to this color format.
+/// `YuyvColor::Black as u32`. To use a custom color, refer to the 4:2:2 YCbCr equation
+/// for converting an RGB color to this color format.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u32)]
 pub enum YuyvColor {
