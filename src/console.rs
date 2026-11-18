@@ -26,6 +26,7 @@ impl Console {
             );
         }
 
+        core::mem::forget(fb);
         Self
     }
 
