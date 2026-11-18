@@ -90,7 +90,7 @@ pub enum VideoFmt {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, TryFromPrimitive)]
 #[repr(u32)]
 pub enum ScanMode {
-    /// Refreshes the lower video field, then the upper field.
+    /// Refreshes the odd video field, then the even field.
     Interlace = ffi::VI_INTERLACE,
     /// Refreshes only one video field every frame, leaving the other field black. Twice
     /// the refresh rate of interlace, but at half the vertical resolution.
@@ -104,9 +104,9 @@ pub enum ScanMode {
 #[repr(u32)]
 pub enum VideoField {
     /// Odd-numbered scan lines (1, 3, 5, ...)
-    Lower = ffi::VI_FIELD_BELOW,
+    Odd = ffi::VI_FIELD_BELOW,
     /// Even-numbered scan lines (0, 2, 4, ...)
-    Upper = ffi::VI_FIELD_ABOVE,
+    Even = ffi::VI_FIELD_ABOVE,
 }
 
 /// Whether the framebuffer is in single-field or double-field mode
