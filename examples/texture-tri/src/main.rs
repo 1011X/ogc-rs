@@ -8,7 +8,8 @@ use ogc_rs::{
         Texture, VtxAttr, WrapMode,
     },
     print, println,
-    video::Video,
+    system::System,
+    video::{self, RenderConfig},
 };
 
 extern crate alloc;
@@ -17,30 +18,31 @@ const WHITE_BYTES: &[u8] = include_bytes!("../white.png");
 
 #[no_mangle]
 extern "C" fn main(_argc: isize, _argv: *const *const u8) -> isize {
-    let vi = Video::init();
-    let mut config = Video::get_preferred_mode();
+    video::init();
+    let mut config = RenderConfig::default();
+    let mut fb = System::allocate_framebuffer(&config);
 
     // Add letterbox on PAL to avoid stretching
-    if config.extern_framebuffer_height > config.embed_framebuffer_height {
-        config.vi_y_origin = (config.extern_framebuffer_height - config.embed_framebuffer_height) / 2;
+    if config.xfb_height > config.efb_height {
+        config.vi_origin_y = (config.xfb_height - config.efb_height) / 2;
         config.vi_height = 480;
-        config.extern_framebuffer_height = 480;
+        config.xfb_height = 480;
     }
 
-    Video::configure(&config);
-    unsafe { Video::set_next_framebuffer(vi.framebuffer) };
-    Video::set_black(false);
-    Video::flush();
+    video::configure(&config);
+    video::set_next_framebuffer(&fb);
+    video::set_black(false);
+    video::flush();
 
     let _fifo = gx::init(256 * 1024);
     // Set values to use when video is flipped / cleared
-    gx::set_copy_clear(Color::new(0x00, 0x00, 0x00), 0x00_FF_FF_FF);
+    gx::set_copy_clear(Color::BLACK, 0x00_FF_FF_FF);
 
     gx::set_viewport(
         0.0,
         0.0,
-        config.framebuffer_width.into(),
-        config.embed_framebuffer_height.into(),
+        config.fb_width.into(),
+        config.efb_height.into(),
         0.,
         1.,
     );
@@ -48,27 +50,27 @@ extern "C" fn main(_argc: isize, _argv: *const *const u8) -> isize {
     gx::set_scissor(
         0,
         0,
-        config.framebuffer_width.into(),
-        config.embed_framebuffer_height.into(),
+        config.fb_width.into(),
+        config.efb_height.into(),
     );
     gx::set_disp_copy_src(
         0,
         0,
-        config.framebuffer_width,
-        config.embed_framebuffer_height,
+        config.fb_width,
+        config.efb_height,
     );
-    gx::set_disp_copy_dst(config.framebuffer_width, config.extern_framebuffer_height);
+    gx::set_disp_copy_dst(config.fb_width, config.xfb_height);
     gx::set_copy_filter(
-        (config.anti_aliasing != 0).then_some(config.sample_pattern),
+        config.sample_pattern,
         Some(config.v_filter),
     );
 
     gx::set_field_mode(
-        config.field_rendering != 0,
-        config.vi_height != 2 * config.extern_framebuffer_height
+        config.field_rendering,
+        config.vi_height != 2 * config.xfb_height
     );
     gx::set_cull_mode(CullMode::None);
-    unsafe { gx::copy_disp(vi.framebuffer, true) };
+    gx::copy_disp(&mut fb, true);
 
     let mut mat = [[0.; 4]; 4];
     Gu::perspective(&mut mat, 60., 4. / 3., 10., 300.);
@@ -178,10 +180,10 @@ extern "C" fn main(_argc: isize, _argv: *const *const u8) -> isize {
         gx::draw_done();
         gx::set_z_mode(true, CmpFn::LessEq, true);
         gx::set_color_update(true);
-        unsafe { gx::copy_disp(vi.framebuffer, true) };
+        gx::copy_disp(&mut fb, true);
         gx::flush();
 
-        Video::wait_vsync();
+        video::wait_vsync();
         i += 1;
     }
 }

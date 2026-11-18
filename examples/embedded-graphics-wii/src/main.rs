@@ -14,11 +14,14 @@ use embedded_graphics::{
 };
 
 use ogc_rs::prelude::*;
-use ogc_rs::gx;
+use ogc_rs::{gx, video};
 
 #[no_mangle]
 extern "C" fn main(_argc: isize, _argv: *const *const u8) -> isize {
-    let mut video = Video::init();
+    video::init();
+    
+    let config = RenderConfig::default();
+    let mut fb = System::allocate_framebuffer(&config);
     Input::init(ControllerType::Gamecube);
     Input::init(ControllerType::Wii);
 
@@ -28,18 +31,16 @@ extern "C" fn main(_argc: isize, _argv: *const *const u8) -> isize {
         .as_wpad()
         .set_data_format(WPadDataFormat::ButtonsAccelIR);
 
-    Console::init(&video);
-    Video::configure(&video.render_config);
-    unsafe {
-        Video::set_next_framebuffer(video.framebuffer);
-    }
-    Video::set_black(true);
-    Video::flush();
-    Video::wait_vsync();
+    //Console::init(fb, &config);
+    video::configure(&config);
+    video::set_next_framebuffer(&fb);
+    video::set_black(true);
+    video::flush();
+    video::wait_vsync();
 
     let mut wii_display = Display::new(256 * 1024);
-    wii_display.setup(&mut video.render_config);
-    Video::set_black(false);
+    wii_display.setup(&config);
+    video::set_black(false);
 
     println!("Hello World!");
 
@@ -63,8 +64,8 @@ extern "C" fn main(_argc: isize, _argv: *const *const u8) -> isize {
         gx::set_viewport(
             0.0,
             0.0,
-            video.render_config.framebuffer_width as f32,
-            video.render_config.embed_framebuffer_height as f32,
+            config.fb_width as f32,
+            config.efb_height as f32,
             0.0,
             0.0,
         );
@@ -100,12 +101,10 @@ extern "C" fn main(_argc: isize, _argv: *const *const u8) -> isize {
             .draw(&mut wii_display)
             .unwrap();
 
-        wii_display.flush(video.framebuffer);
+        wii_display.flush(&mut fb);
 
-        unsafe {
-            Video::set_next_framebuffer(video.framebuffer);
-        }
-        Video::flush();
-        Video::wait_vsync();
+        video::set_next_framebuffer(&fb);
+        video::flush();
+        video::wait_vsync();
     }
 }

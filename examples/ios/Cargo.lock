@@ -189,6 +189,7 @@ dependencies = [
 [[package]]
 name = "ogc-rs"
 version = "0.1.1"
+source = "git+https://github.com/rust-wii/ogc-rs/#c40350b50a196e22334aecf8acf0310d7070b7bc"
 dependencies = [
  "bit_field",
  "bitflags",
@@ -203,6 +204,7 @@ dependencies = [
 [[package]]
 name = "ogc-sys"
 version = "0.1.1"
+source = "git+https://github.com/rust-wii/ogc-rs/#c40350b50a196e22334aecf8acf0310d7070b7bc"
 dependencies = [
  "bindgen",
  "doxygen-rs",

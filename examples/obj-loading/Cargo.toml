@@ -13,5 +13,6 @@ gctex = {path = "./vendor/gctex", default-features = false }
 minipng = { version = "0.1.1", default-features = false }
 ogc-rs = {
     git = "https://github.com/rust-wii/ogc-rs/",
+    #path = "../..",
     features = ["ffi", "default_panic_handler"]
 }

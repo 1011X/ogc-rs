@@ -1,4 +1,4 @@
-use core::{convert::TryInto, ffi::c_void};
+use core::convert::TryInto;
 
 use embedded_graphics::{
     draw_target::DrawTarget,
@@ -11,6 +11,7 @@ use ogc_rs::{
     ffi::GX_PNMTX0,
     gx::{self, Gamma, PixelFormat, VtxAttrIn, ZFormat},
     prelude::*,
+    utils::Buf32,
 };
 
 pub struct Display;
@@ -20,40 +21,34 @@ impl Display {
         Self
     }
 
-    pub fn flush(&self, framebuffer: *mut c_void) {
+    pub fn flush(&self, framebuffer: &mut Buf32) {
         gx::draw_done();
         gx::set_z_mode(true, CmpFn::LessEq, true);
-        unsafe {
-            gx::copy_disp(framebuffer, true);
-        }
+        gx::copy_disp(framebuffer, true);
     }
 
-    pub fn setup(&self, rc: &mut RenderConfig) {
+    pub fn setup(&self, rc: &RenderConfig) {
         let mut ident: Mat3x4 = Mat3x4::IDENTITY;
         gx::set_copy_clear(Color::with_alpha(0, 0, 0, 0), 0x00ffffff);
         gx::set_pixel_fmt(PixelFormat::Rgb8Z24, ZFormat::Linear);
         gx::set_viewport(
             0.0,
             0.0,
-            rc.framebuffer_width as f32,
-            rc.embed_framebuffer_height as f32,
+            rc.fb_width as f32,
+            rc.efb_height as f32,
             0.0,
             0.0,
         );
 
-        let yscale =
-            gx::get_y_scale_factor(rc.embed_framebuffer_height, rc.extern_framebuffer_height);
+        let yscale = gx::get_y_scale_factor(rc.efb_height, rc.xfb_height);
         let extern_framebuffer_height = gx::set_disp_copy_y_scale(yscale) as u16;
 
-        let half_aspect_ratio = rc.vi_height == 2 * rc.extern_framebuffer_height;
+        let half_aspect_ratio = rc.vi_height == 2 * rc.xfb_height;
 
-        gx::set_disp_copy_src(0, 0, rc.framebuffer_width, rc.embed_framebuffer_height);
-        gx::set_disp_copy_dst(rc.framebuffer_width, extern_framebuffer_height);
-        gx::set_copy_filter(
-            (rc.anti_aliasing != 0).then_some(rc.sample_pattern),
-            Some(rc.v_filter),
-        );
-        gx::set_field_mode(rc.field_rendering != 0, half_aspect_ratio);
+        gx::set_disp_copy_src(0, 0, rc.fb_width, rc.efb_height);
+        gx::set_disp_copy_dst(rc.fb_width, extern_framebuffer_height);
+        gx::set_copy_filter(rc.sample_pattern, Some(rc.v_filter));
+        gx::set_field_mode(rc.field_rendering, half_aspect_ratio);
         gx::set_disp_copy_gamma(Gamma::Mode10);
 
         //Clear VTX
@@ -78,9 +73,9 @@ impl Display {
         ident.load_as_pos_mtx(GX_PNMTX0 as _);
         let mut perspective: Mat4 = Mat4::gu_ortho(
             0.0,
-            rc.embed_framebuffer_height as f32,
+            rc.efb_height as f32,
             0.0,
-            rc.framebuffer_width as f32,
+            rc.fb_width as f32,
             0.0,
             1000.0,
         );
@@ -89,8 +84,8 @@ impl Display {
         gx::set_viewport(
             0.0,
             0.0,
-            rc.framebuffer_width as f32,
-            rc.embed_framebuffer_height as f32,
+            rc.fb_width as f32,
+            rc.efb_height as f32,
             0.0,
             1.0,
         );
@@ -109,8 +104,8 @@ impl Display {
         gx::set_scissor(
             0,
             0,
-            rc.framebuffer_width.into(),
-            rc.embed_framebuffer_height.into(),
+            rc.fb_width.into(),
+            rc.efb_height.into(),
         );
     }
 }
